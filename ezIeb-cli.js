@@ -11,6 +11,7 @@ var personDataResult = []
 var trainingCheckListResult = []
 var flyTimeViaStageResult = []
 var flyTimeViaDateResult = []
+var flyTaskViaNumResult = []
 
 // var staffJSZB = [...] Load on WPS
 var sfb_NewStaff = ["905048","212867","901526","186645","901631","904808","905049","905212","277581","298130","297720","297722","298120","298956"]
@@ -18,7 +19,7 @@ var newStaffAll = ["202860","213437","901741","901792","209640","210822","901407
 
 var newFODate = [['217103','2020-12-31','2021-04-30'],['217103','2021-06-10','2021-10-08'],['217103','2020-06-01','2020-09-29'],['217103','2020-12-28','2021-04-27'],['217103','2021-06-07','2021-10-05'],['217103','2021-06-08','2021-10-06'],['217103','2021-12-10','2022-04-09'],['217103','2021-12-11','2022-04-10'],['217103','2022-06-18','2022-10-16'],['217103','2022-11-29','2023-03-29'],['217103','2022-12-01','2023-03-31'],['217103','2023-12-08','2024-04-06'],['217103','2023-12-09','2024-04-07'],['217103','2025-02-20','2025-06-20'],['217103','2025-08-17','2025-12-15'],['217103','2025-08-18','2025-12-16'],['217103','2025-02-22','2025-06-22'],['258456','2024-02-03','2024-06-02'],['258456','2023-12-17','2024-04-15'],['258456','2024-02-02','2024-06-01'],['258456','2024-02-03','2024-06-02'],['258456','2024-08-10','2024-12-08'],['258456','2024-08-11','2024-12-09'],['258456','2025-02-01','2025-06-01'],['258456','2025-08-22','2025-12-20'],['258456','2025-02-04','2025-06-04'],['258456','2023-08-13','2023-12-11'],['260936','2023-05-18','2023-09-15'],['260936','2023-12-16','2024-04-14'],['260936','2023-12-17','2024-04-15'],['260936','2024-05-21','2024-09-18'],['260936','2024-05-22','2024-09-19'],['260936','2024-12-02','2025-04-01'],['260936','2024-12-03','2025-04-02'],['260936','2025-05-29','2025-09-26'],['260936','2025-05-30','2025-09-27'],['260936','2025-11-17','2026-03-17'],['260936','2025-11-18','2026-03-18'],['260936','2023-01-03','2023-05-03'],['271946','2023-01-20','2023-05-20'],['271946','2023-03-07','2023-07-05'],['271946','2023-09-04','2024-01-02'],['271946','2023-09-05','2024-01-03'],['271946','2024-03-27','2024-07-25'],['271946','2024-10-05','2025-02-02'],['271946','2024-10-06','2025-02-03'],['271946','2025-03-19','2025-07-17'],['271946','2025-03-20','2025-07-18'],['271946','2025-09-17','2026-01-15'],['271946','2025-09-18','2026-01-16'],['271946','2022-09-11','2023-01-09'],['272816','2023-04-16','2023-08-14'],['272816','2022-05-17','2022-09-14'],['272816','2022-12-03','2023-04-02'],['272816','2023-12-08','2024-04-06'],['272816','2023-12-09','2024-04-07'],['272816','2024-06-19','2024-10-17'],['272816','2024-06-20','2024-10-18'],['272816','2024-12-11','2025-04-10'],['272816','2024-12-12','2025-04-11'],['272816','2025-06-09','2025-10-07'],['272816','2025-06-10','2025-10-08'],['272816','2025-12-05','2026-04-04'],['272816','2025-12-06','2026-04-05'],['272816','2022-03-31','2022-07-29'],['272816','2022-08-21','2022-12-19'],['276032','2024-02-19','2024-06-18'],['276032','2023-10-25','2024-02-22'],['276032','2023-10-26','2024-02-23'],['276032','2024-05-15','2024-09-12'],['276032','2024-05-16','2024-09-13'],['276032','2024-11-26','2025-03-26'],['276032','2024-11-27','2025-03-27'],['276032','2025-05-13','2025-09-10'],['276032','2025-05-14','2025-09-11'],['276032','2025-11-22','2026-03-22'],['276032','2025-11-23','2026-03-23'],['276032','2023-06-15','2023-10-13'],['276705','2024-01-28','2024-05-27'],['276705','2024-03-30','2024-07-28'],['276705','2024-03-31','2024-07-29'],['276705','2024-07-31','2024-11-28'],['276705','2024-08-01','2024-11-29'],['276705','2025-03-25','2025-07-23'],['276705','2025-03-26','2025-07-24'],['276705','2025-09-15','2026-01-13'],['276705','2025-09-16','2026-01-14'],['276705','2023-10-14','2024-02-11'],['277573','2024-06-10','2024-10-08'],['277573','2024-08-05','2024-12-03'],['277573','2024-08-06','2024-12-04'],['277573','2025-02-01','2025-06-01'],['277573','2025-02-02','2025-06-02'],['277573','2025-07-30','2025-11-27'],['277573','2025-07-31','2025-11-28'],['277573','2025-02-04','2025-06-04'],['277573','2024-02-08','2024-06-07'],['277581','2025-09-03','2026-01-01'],['277581','2025-04-26','2025-08-24'],['277581','2025-04-27','2025-08-25'],['277581','2025-11-04','2026-03-04'],['277581','2025-11-05','2026-03-05'],['277581','2024-12-15','2025-04-14'],['277582','2023-02-07','2023-06-07'],['277582','2023-08-10','2023-12-08'],['277582','2023-08-11','2023-12-09'],['277582','2024-01-04','2024-05-03'],['277582','2024-01-05','2024-05-04'],['277582','2024-07-01','2024-10-29'],['277582','2025-01-27','2025-05-27'],['277582','2025-01-28','2025-05-28'],['277582','2025-08-17','2025-12-15'],['277582','2025-08-18','2025-12-16'],['277582','2026-01-04','2026-05-04'],['277582','2026-01-05','2026-05-05'],['277582','2025-01-30','2025-05-30'],['277582','2022-10-31','2023-02-28'],['278103','2025-05-14','2025-09-11'],['278103','2025-05-15','2025-09-12'],['278103','2025-11-27','2026-03-27'],['278103','2025-11-28','2026-03-28'],['278103','2025-05-18','2025-09-15'],['278103','2025-01-10','2025-05-10'],['280202','2025-03-22','2025-07-20'],['280202','2025-03-23','2025-07-21'],['280202','2025-10-04','2026-02-01'],['280202','2025-10-05','2026-02-02'],['280202','2024-11-09','2025-03-09'],['280951','2025-06-22','2025-10-20'],['280951','2024-09-28','2025-01-26'],['280951','2024-09-29','2025-01-27'],['280951','2025-02-09','2025-06-09'],['280951','2025-02-10','2025-06-10'],['280951','2025-08-31','2025-12-29'],['280951','2025-09-01','2025-12-30'],['280951','2025-02-12','2025-06-12'],['280951','2024-04-12','2024-08-10'],['282150','2024-09-19','2025-01-17'],['282150','2024-09-20','2025-01-18'],['282150','2025-04-12','2025-08-10'],['282150','2025-04-16','2025-08-14'],['282150','2025-09-26','2026-01-24'],['282150','2025-09-27','2026-01-25'],['282150','2024-04-12','2024-08-10'],['282653','2025-09-01','2025-12-30'],['282653','2025-09-02','2025-12-31'],['282653','2025-05-01','2025-08-29'],['283370','2025-06-30','2025-10-28'],['283370','2025-07-01','2025-10-29'],['283370','2025-02-07','2025-06-07'],['283385','2026-01-03','2026-05-03'],['283385','2025-09-03','2026-01-01'],['283385','2025-09-04','2026-01-02'],['283385','2025-05-12','2025-09-09'],['283389','2025-01-10','2025-05-10'],['283389','2024-09-11','2025-01-09'],['283389','2024-09-12','2025-01-10'],['283389','2025-03-15','2025-07-13'],['283389','2025-03-16','2025-07-14'],['283389','2025-08-28','2025-12-26'],['283389','2025-08-29','2025-12-27'],['283389','2024-04-06','2024-08-04'],['283832','2025-07-19','2025-11-16'],['283832','2025-07-21','2025-11-18'],['283832','2025-03-14','2025-07-12'],['287138','2025-10-05','2026-02-02'],['287138','2025-10-06','2026-02-03'],['287138','2025-06-13','2025-10-11'],['287628','2025-09-11','2026-01-09'],['287628','2025-05-09','2025-09-06'],['289664','2025-06-22','2025-10-20'],['289664','2025-01-01','2025-05-01'],['289664','2025-01-02','2025-05-02'],['289664','2025-08-05','2025-12-03'],['289664','2025-08-06','2025-12-04'],['289664','2026-01-08','2026-05-08'],['289664','2026-01-09','2026-05-09'],['289664','2025-01-03','2025-05-03'],['289664','2024-08-19','2024-12-17'],['290013','2025-05-15','2025-09-12'],['290013','2025-05-16','2025-09-13'],['290013','2025-11-13','2026-03-13'],['290013','2025-11-14','2026-03-14'],['290013','2025-01-13','2025-05-13'],['291375','2025-07-06','2025-11-03'],['291375','2025-07-07','2025-11-04'],['291375','2025-02-07','2025-06-07'],['292689','2025-09-03','2026-01-01'],['292689','2025-10-13','2026-02-10'],['292689','2025-10-14','2026-02-11'],['292689','2025-05-13','2025-09-10'],['292693','2025-09-26','2026-01-24'],['292693','2025-05-15','2025-09-12'],['292694','2025-07-21','2025-11-18'],['292694','2025-07-22','2025-11-19'],['292694','2025-03-07','2025-07-05'],['292696','2025-09-21','2026-01-19'],['292696','2025-09-22','2026-01-20'],['292696','2025-05-14','2025-09-11'],['294090','2025-10-16','2026-02-13'],['294090','2025-10-17','2026-02-14'],['294090','2025-06-13','2025-10-11'],['294091','2025-10-01','2026-01-29'],['294091','2025-10-02','2026-01-30'],['294091','2025-06-11','2025-10-09'],['294092','2025-07-28','2025-11-25'],['294092','2025-07-29','2025-11-26'],['294092','2025-03-11','2025-07-09'],['294533','2025-12-07','2026-04-06'],['294942','2025-12-24','2026-04-23'],['294942','2025-09-07','2026-01-05'],['294944','2025-11-02','2026-03-02'],['294949','2025-12-02','2026-04-01'],['294949','2025-12-03','2026-04-02'],['294949','2025-07-11','2025-11-08'],['295869','2025-10-01','2026-01-29'],['297719','2025-10-01','2026-01-29'],['297720','2025-10-01','2026-01-29'],['297721','2025-12-24','2026-04-23'],['297721','2025-09-09','2026-01-07'],['297722','2025-11-02','2026-03-02'],['298120','2025-12-05','2026-04-04'],['298122','2025-12-07','2026-04-06'],['298126','2025-12-05','2026-04-04'],['298130','2026-01-03','2026-05-03'],['298130','2025-09-09','2026-01-07'],['298132','2025-11-11','2026-03-11'],['298132','2025-11-12','2026-03-12'],['298132','2025-07-12','2025-11-09'],['901662','2026-01-14','2026-05-14'],['905212','2026-01-14','2026-05-14']]
 var newFO = ["297719","298126","294533","298130","277581","297720","297722","298120","295869","294944","298122"]
-// ºËĞÄº¯Êı¶¨Òå
+// æ ¸å¿ƒå‡½æ•°å®šä¹‰
 var ezIeb = {
     trainingRecord:{
         init:()=>{
@@ -59,23 +60,23 @@ var ezIeb = {
                 "mode": "cors",
                 "credentials": "include"
             })
-            .then(response => response.json()) // ½âÎöJSON¸ñÊ½µÄÏìÓ¦Ìå
+            .then(response => response.json()) // è§£æJSONæ ¼å¼çš„å“åº”ä½“
             .then(data => {
-                // Êı¾İ´¦Àí:staffIdÌí¼ÓÔ±¹¤ºÅ
+                // æ•°æ®å¤„ç†:staffIdæ·»åŠ å‘˜å·¥å·
                 var eData = data.data.list
                 for(var j=0;j<eData.length;j++){
                     if(eData[j].staffId !== ""){
                         eData[j].staffId = staffNum
                     }
                 }
-                // Êı¾İµ¼³ö
+                // æ•°æ®å¯¼å‡º
                 trainingRecordResult.push(eData)
                 console.log("fetchTrainingRecordviaStuffNum",staffNum,"Completed")
-            }) // ´¦ÀíÊı¾İ
-            .catch((error) => console.error('fetchTrainingRecordviaStaffNum on Error:', staffNum, error)); // ²¶»ñ´íÎó
+            }) // å¤„ç†æ•°æ®
+            .catch((error) => console.error('fetchTrainingRecordviaStaffNum on Error:', staffNum, error)); // æ•è·é”™è¯¯
         },
         down:(pageSize = 200)=>{
-            exportMergedBigData(trainingRecordResult,"ÅàÑµ¼ÇÂ¼µ¼³ö",pageSize)
+            exportMergedBigData(trainingRecordResult,"åŸ¹è®­è®°å½•å¯¼å‡º",pageSize)
         }
     },
     trainingCheckList:{
@@ -118,23 +119,23 @@ var ezIeb = {
                 "mode": "cors",
                 "credentials": "include"
             })
-            .then(response => response.json()) // ½âÎöJSON¸ñÊ½µÄÏìÓ¦Ìå
+            .then(response => response.json()) // è§£æJSONæ ¼å¼çš„å“åº”ä½“
             .then(data => {
-                // Êı¾İ´¦Àí:staffIdÌí¼ÓÔ±¹¤ºÅ
+                // æ•°æ®å¤„ç†:staffIdæ·»åŠ å‘˜å·¥å·
                 var eData = data.data
                 for(var j=0;j<eData.length;j++){
                     if(eData[j].staffId !== ""){
                         eData[j].staffId = staffNum
                     }
                 }
-                // Êı¾İµ¼³ö
+                // æ•°æ®å¯¼å‡º
                 trainingCheckListResult.push(eData)
                 console.log("fetchTrainingCheckListviaStuffNum",staffNum,"Completed")
-            }) // ´¦ÀíÊı¾İ
-            .catch((error) => console.error('fetchTrainingCheckListviaStaffNum on Error:', staffNum, error)); // ²¶»ñ´íÎó
+            }) // å¤„ç†æ•°æ®
+            .catch((error) => console.error('fetchTrainingCheckListviaStaffNum on Error:', staffNum, error)); // æ•è·é”™è¯¯
         },
         down:(pageSize = 180)=>{
-            exportMergedBigData(trainingCheckListResult,"¼ì²é¼ÇÂ¼µ¼³ö",pageSize)
+            exportMergedBigData(trainingCheckListResult,"æ£€æŸ¥è®°å½•å¯¼å‡º",pageSize)
         }
     },
     qualList:{
@@ -177,21 +178,21 @@ var ezIeb = {
                 "mode": "cors",
                 "credentials": "include"
             })
-            .then(response => response.json()) // ½âÎöJSON¸ñÊ½µÄÏìÓ¦Ìå
+            .then(response => response.json()) // è§£æJSONæ ¼å¼çš„å“åº”ä½“
             .then(data => {
-                // Êı¾İ´¦Àí:ĞÂÔöstaffId,staffIdÌí¼ÓÔ±¹¤ºÅ
+                // æ•°æ®å¤„ç†:æ–°å¢staffId,staffIdæ·»åŠ å‘˜å·¥å·
                 var eData = data.data
                 for(var j=0;j<eData.length;j++){
                         eData[j].staffId = staffNum
                 }
-                // Êı¾İµ¼³ö
+                // æ•°æ®å¯¼å‡º
                 qualListResult.push(eData)
                 console.log("fetchQualListViaStaffNum",staffNum,"Completed")
-            }) // ´¦ÀíÊı¾İ
-            .catch((error) => console.error('fetchQualListViaStaffNum on Error:', staffNum, error)); // ²¶»ñ´íÎó
+            }) // å¤„ç†æ•°æ®
+            .catch((error) => console.error('fetchQualListViaStaffNum on Error:', staffNum, error)); // æ•è·é”™è¯¯
         },
         down:()=>{
-            exportMergedData(qualListResult,"ÔËĞĞ×Ê¸ñµ¼³ö")
+            exportMergedData(qualListResult,"è¿è¡Œèµ„æ ¼å¯¼å‡º")
         }
     },
     skillLevel:{
@@ -233,21 +234,21 @@ var ezIeb = {
                 "mode": "cors",
                 "credentials": "include"
             })
-            .then(response => response.json()) // ½âÎöJSON¸ñÊ½µÄÏìÓ¦Ìå
+            .then(response => response.json()) // è§£æJSONæ ¼å¼çš„å“åº”ä½“
             .then(data => {
-                // Êı¾İ´¦Àí:ĞÂÔöstaffId,staffIdÌí¼ÓÔ±¹¤ºÅ
+                // æ•°æ®å¤„ç†:æ–°å¢staffId,staffIdæ·»åŠ å‘˜å·¥å·
                 var eData = data.data
                 for(var j=0;j<eData.length;j++){
                         eData[j].staffId = staffNum
                 }
-                // Êı¾İµ¼³ö
+                // æ•°æ®å¯¼å‡º
                 skillLevelResult.push(eData)
                 console.log("fetchSkillLevelList",staffNum,"Completed")
-            }) // ´¦ÀíÊı¾İ
-            .catch((error) => console.error('fetchSkillLevelList on Error:', staffNum, error)); // ²¶»ñ´íÎó
+            }) // å¤„ç†æ•°æ®
+            .catch((error) => console.error('fetchSkillLevelList on Error:', staffNum, error)); // æ•è·é”™è¯¯
         },
         down:()=>{
-            exportMergedData(skillLevelResult,"¼¼ÊõµÈ¼¶µ¼³ö")
+            exportMergedData(skillLevelResult,"æŠ€æœ¯ç­‰çº§å¯¼å‡º")
         }
     },
     personData:{
@@ -290,27 +291,27 @@ var ezIeb = {
                 "mode": "cors",
                 "credentials": "include"
             })
-            .then(response => response.json()) // ½âÎöJSON¸ñÊ½µÄÏìÓ¦Ìå
+            .then(response => response.json()) // è§£æJSONæ ¼å¼çš„å“åº”ä½“
             .then(data => {
                 if(data.code == 200){
-                    // Êı¾İ´¦Àí:staffIdÌí¼ÓÔ±¹¤ºÅ
+                    // æ•°æ®å¤„ç†:staffIdæ·»åŠ å‘˜å·¥å·
                     var eData = data.data
                     eData.staffId = staffNum
-                    // Êı¾İ´¦Àí:½âÂëÖ´ÕÕºÅ&ÊÖ»úºÅ -> utils
+                    // æ•°æ®å¤„ç†:è§£ç æ‰§ç…§å·&æ‰‹æœºå· -> utils
                     // eData.mobile = tThis.utils.decrypt(eData.mobile)
                     // eData.identityNum = tThis.utils.decrypt(eData.identityNum)
 
-                    // Êı¾İµ¼³ö
+                    // æ•°æ®å¯¼å‡º
                     personDataResult.push(eData)
                     console.log("fetchPersonInfoviaStuffNum",staffNum,"Completed")
                 }else{
                     console.error('fetchPersonInfoviaStaffNum on Error:', staffNum, data.msg)
                 }
-            }) // ´¦ÀíÊı¾İ
-            .catch((error) => console.error('fetchPersonInfoviaStaffNum on Error:', staffNum, error)); // ²¶»ñ´íÎó
+            }) // å¤„ç†æ•°æ®
+            .catch((error) => console.error('fetchPersonInfoviaStaffNum on Error:', staffNum, error)); // æ•è·é”™è¯¯
         },
         down:()=>{
-            exportData(personDataResult,"ÈËÔ±ĞÅÏ¢µ¼³ö")
+            exportData(personDataResult,"äººå‘˜ä¿¡æ¯å¯¼å‡º")
         },
         utils:{
             decrypt:(e)=>{
@@ -330,7 +331,7 @@ var ezIeb = {
                     const n = s.map((e) => ~e);
                     return String.fromCharCode(...n);
                 } catch (error) {
-                    console.error('½âÃÜÊ§°Ü:', error);
+                    console.error('è§£å¯†å¤±è´¥:', error);
                     return null;
                 }
             }
@@ -338,7 +339,7 @@ var ezIeb = {
     },
     flyTime:{
         viaStage:{
-            //»ùÓÚ½×¶Î»ñÈ¡
+            //åŸºäºé˜¶æ®µè·å–
             init:()=>{
                 flyTimeViaStageResult = []
                 getCookies();
@@ -378,25 +379,25 @@ var ezIeb = {
                     "mode": "cors",
                     "credentials": "include"
                 })
-                .then(response => response.json()) // ½âÎöJSON¸ñÊ½µÄÏìÓ¦Ìå
+                .then(response => response.json()) // è§£æJSONæ ¼å¼çš„å“åº”ä½“
                 .then(data => {
-                    // Êı¾İ´¦Àí:ĞÂÔöstaffId,staffIdÌí¼ÓÔ±¹¤ºÅ
+                    // æ•°æ®å¤„ç†:æ–°å¢staffId,staffIdæ·»åŠ å‘˜å·¥å·
                     var eData = data.data.list
                     for(var j=0;j<eData.length;j++){
                             eData[j].staffId = staffNum
                     }
-                    // Êı¾İµ¼³ö
+                    // æ•°æ®å¯¼å‡º
                     flyTimeViaStageResult.push(eData)
                     console.log("fetchFlytimeViaStage",staffNum,"Completed")
-                }) // ´¦ÀíÊı¾İ
-                .catch((error) => console.error('fetchFlytimeViaStage on Error:', staffNum, error)); // ²¶»ñ´íÎó
+                }) // å¤„ç†æ•°æ®
+                .catch((error) => console.error('fetchFlytimeViaStage on Error:', staffNum, error)); // æ•è·é”™è¯¯
             },
             down:()=>{
-                exportMergedData(flyTimeViaStageResult,"·ÉĞĞÊ±¼äµ¼³ö")
+                exportMergedData(flyTimeViaStageResult,"é£è¡Œæ—¶é—´å¯¼å‡º")
             }
         },
         viaDate:{
-            // »ùÓÚÆğÖ¹ÈÕÆÚ»ñÈ¡
+            // åŸºäºèµ·æ­¢æ—¥æœŸè·å–
             init:()=>{
                 flyTimeViaDateResult = []
                 getCookies();
@@ -441,37 +442,37 @@ var ezIeb = {
                     "mode": "cors",
                     "credentials": "include"
                 })
-                .then(response => response.json()) // ½âÎöJSON¸ñÊ½µÄÏìÓ¦Ìå
+                .then(response => response.json()) // è§£æJSONæ ¼å¼çš„å“åº”ä½“
                 .then(data => {
                     if(data.code == 200){
-                        // Êı¾İ´¦Àí:staffIdÌí¼ÓÔ±¹¤ºÅ
+                        // æ•°æ®å¤„ç†:staffIdæ·»åŠ å‘˜å·¥å·
                         var eData = data.data[0]
                         eData.staffId = staffNum
 
-                        // Êı¾İµ¼³ö
+                        // æ•°æ®å¯¼å‡º
                         flyTimeViaDateResult.push(eData)
                         console.log("fetchFlyTimeViaDateviaStuffNum",staffNum,"Completed")
                     }else{
                         console.error('fetchFlyTimeViaDateviaStaffNum on Error:', staffNum, data.msg)
                     }
-                }) // ´¦ÀíÊı¾İ
-                .catch((error) => console.error('fetchFlyTimeViaDateviaStaffNum on Error:', staffNum, error)); // ²¶»ñ´íÎó
+                }) // å¤„ç†æ•°æ®
+                .catch((error) => console.error('fetchFlyTimeViaDateviaStaffNum on Error:', staffNum, error)); // æ•è·é”™è¯¯
             },
             down:()=>{
-                exportData(flyTimeViaDateResult,"·ÉĞĞÊ±¼äµ¼³ö")
+                exportData(flyTimeViaDateResult,"é£è¡Œæ—¶é—´å¯¼å‡º")
             },
             utils:{
                 getDateDash:(dt)=>{
                     var now = new Date(dt);
                     var year = now.getFullYear();
-                    var month = now.getMonth() + 1 < 10? `0${now.getMonth() + 1}`:now.getMonth() + 1; // ÔÂ·İÊÇ´Ó0¿ªÊ¼µÄ£¬ËùÒÔÒª¼Ó1
+                    var month = now.getMonth() + 1 < 10? `0${now.getMonth() + 1}`:now.getMonth() + 1; // æœˆä»½æ˜¯ä»0å¼€å§‹çš„ï¼Œæ‰€ä»¥è¦åŠ 1
                     var date = now.getDate() < 10? `0${now.getDate()}`:now.getDate();
                     return `${year}-${month}-${date}`
                 }
             }
         },
-        viaIebDate:{//½öÓÃÓÚ120Ìì100Ğ¡Ê±¾­Àúµ¼³ö
-            // »ùÓÚÆğÖ¹ÈÕÆÚ»ñÈ¡
+        viaIebDate:{//ä»…ç”¨äº120å¤©100å°æ—¶ç»å†å¯¼å‡º
+            // åŸºäºèµ·æ­¢æ—¥æœŸè·å–
             init:()=>{
                 flyTimeViaDateResult = []
                 getCookies();
@@ -522,27 +523,141 @@ var ezIeb = {
             } catch (error) {console.error('fetchFlyTimeViaDateviaStaffNum on Error:', staffNum, error)}
             },
             down:()=>{
-                exportData(flyTimeViaDateResult,"·ÉĞĞÊ±¼äµ¼³ö")
+                exportData(flyTimeViaDateResult,"é£è¡Œæ—¶é—´å¯¼å‡º")
             },
             utils:{
                 getDateDash:(dt)=>{
                     var now = new Date(dt);
                     var year = now.getFullYear();
-                    var month = now.getMonth() + 1 < 10? `0${now.getMonth() + 1}`:now.getMonth() + 1; // ÔÂ·İÊÇ´Ó0¿ªÊ¼µÄ£¬ËùÒÔÒª¼Ó1
+                    var month = now.getMonth() + 1 < 10? `0${now.getMonth() + 1}`:now.getMonth() + 1; // æœˆä»½æ˜¯ä»0å¼€å§‹çš„ï¼Œæ‰€ä»¥è¦åŠ 1
                     var date = now.getDate() < 10? `0${now.getDate()}`:now.getDate();
                     return `${year}-${month}-${date}`
                 }
             } 
         }
     },
-
+    passport:{
+        init:()=>{
+            passportResult = []
+            getCookies();
+        },
+        getViaStaffNum:(staffNum) => {
+            var tThis = ezIeb.passport
+            tThis.init()
+            tThis.fetch(staffNum)
+        },
+        getViaStaffList:(staffList) =>{
+            // init
+            var tThis = ezIeb.passport
+            tThis.init()
+            for(var i=0;i<staffList.length;i++){
+                tThis.fetch(staffList[i])
+            }
+        },
+        fetch:(staffNum = 198273)=>{
+            //     https://ifly.csair.com/api/profile-app/license/passport?staffNum=198273&r=1771035810706
+            fetch(`https://ifly.csair.com/api/profile-app/license/passport?staffNum=${staffNum}&r=${Date.now()}`, {
+                "headers": {
+                    "accept": "application/json, text/plain, */*",
+                    "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+                    "cache-control": "no-cache",
+                    "ifly-token": IFLY_TOKEN,
+                    "pragma": "no-cache",
+                    "sec-ch-ua": "\"Google Chrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"",
+                    "sec-ch-ua-mobile": "?0",
+                    "sec-ch-ua-platform": "\"macOS\"",
+                    "sec-fetch-dest": "empty",
+                    "sec-fetch-mode": "cors",
+                    "sec-fetch-site": "same-origin"
+                },
+                "referrer": "https://ifly.csair.com/",
+                "body": null,
+                "method": "GET",
+                "mode": "cors",
+                "credentials": "include"
+            })
+            .then(response => response.json()) // è§£æJSONæ ¼å¼çš„å“åº”ä½“
+            .then(data => {
+                // æ•°æ®å¤„ç†:æ–°å¢staffId,staffIdæ·»åŠ å‘˜å·¥å·
+                var eData = data.data
+                for(var j=0;j<eData.length;j++){
+                        eData[j].staffId = staffNum
+                }
+                // æ•°æ®å¯¼å‡º
+                passportResult.push(eData)
+                console.log("fetchPassport",staffNum,"Completed")
+            }) // å¤„ç†æ•°æ®
+            .catch((error) => console.error('fetchPassport', staffNum, error)); // æ•è·é”™è¯¯
+        },
+        down:()=>{
+            exportMergedData(passportResult,"æŠ¤ç…§ç­¾è¯å¯¼å‡º")
+        }
+    },
+    flyTask:{
+        viaFlightNum:{
+        init:()=>{
+            flyTaskViaNumResult = []
+            getCookies();
+        },
+        getViaFlightNum:(flightNum) => {
+            var tThis = ezIeb.flyTask.viaFlightNum
+            tThis.init()
+            tThis.fetch(flightNum)
+        },
+        getViaFlightNumList:(flightNumList) =>{
+            // init
+            var tThis = ezIeb.flyTask.viaFlightNum
+            tThis.init()
+            for(var i=0;i<flightNumList.length;i++){
+                tThis.fetch(flightNumList[i])
+            }
+        },
+        fetch:(fltNum = "0427",startDate = '20260217',endDate = "20260226")=>{
+            fetch(`https://ifly.csair.com/api/os-app/flightTask/page?pageNum=1&pageSize=9999&fltNum=${fltNum}&depCd=&arvCd=&startDate=${startDate}&endDate=${endDate}&r=${Date.now()}`, {
+                "headers": {
+                    "accept": "application/json, text/plain, */*",
+                    "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+                    "cache-control": "no-cache",
+                    "ifly-token": IFLY_TOKEN,
+                    "pragma": "no-cache",
+                    "sec-ch-ua": "\"Google Chrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"",
+                    "sec-ch-ua-mobile": "?0",
+                    "sec-ch-ua-platform": "\"macOS\"",
+                    "sec-fetch-dest": "empty",
+                    "sec-fetch-mode": "cors",
+                    "sec-fetch-site": "same-origin"
+                },
+                "referrer": "https://ifly.csair.com/",
+                "body": null,
+                "method": "GET",
+                "mode": "cors",
+                "credentials": "include"
+            })
+            .then(response => response.json()) // è§£æJSONæ ¼å¼çš„å“åº”ä½“
+            .then(data => {
+                // æ•°æ®å¤„ç†:æ–°å¢flightNumï¼Œæ·»åŠ èˆªç­å·
+                var eData = data.data.list
+                for(var j=0;j<eData.length;j++){
+                        eData[j].fltNum = fltNum
+                }
+                // æ•°æ®å¯¼å‡º
+                flyTaskViaNumResult.push(eData)
+                console.log("fetchFlyTaskViaNum",fltNum,"Completed")
+            }) // å¤„ç†æ•°æ®
+            .catch((error) => console.error('fetchFlyTaskViaNum on Error:', fltNum, error)); // æ•è·é”™è¯¯
+        },
+        down:()=>{
+            exportMergedData(flyTaskViaNumResult,"èˆªç­ä»»åŠ¡å¯¼å‡º")
+        }
+        }
+    },
     auto:{
          getViaStaffNum:(staffList)=>{
-            ezIeb.trainingRecord.getViaStaffList(staffList)
-            ezIeb.trainingCheckList.getViaStaffList(staffList)
-            ezIeb.qualList.getViaStaffList(staffList)
-            ezIeb.skillLevel.getViaStaffList(staffList)
-            ezIeb.personData.getViaStaffList(staffList)
+            setTimeout(()=>ezIeb.trainingRecord.getViaStaffList(staffList),100)
+            setTimeout(()=>ezIeb.trainingCheckList.getViaStaffList(staffList),15000)
+            setTimeout(()=>ezIeb.qualList.getViaStaffList(staffList),30000)
+            setTimeout(()=>ezIeb.skillLevel.getViaStaffList(staffList),45000)
+            setTimeout(()=>ezIeb.personData.getViaStaffList(staffList),60000)
          },
          down:()=>{
             ezIeb.trainingRecord.down()
@@ -585,7 +700,7 @@ ezConsole = {
     }
 }
 
-// ¼ÓÔØSheetJS¿â
+// åŠ è½½SheetJSåº“
 function loadSheetJS() {
     return new Promise((resolve, reject) => {
         if (typeof XLSX !== 'undefined') {
@@ -600,7 +715,7 @@ function loadSheetJS() {
         document.head.appendChild(script);
     });
 }
-// ¼ÓÔØjquery
+// åŠ è½½jquery
 function loadJqueryJS() {
     return new Promise((resolve, reject) => {
         if (typeof jQuery !== 'undefined') {
@@ -616,7 +731,7 @@ function loadJqueryJS() {
     });
 }
 
-// Ô¤´¦ÀíÊı¾İ - ½«JSON¶ÔÏó×ª»»Îª×Ö·û´®
+// é¢„å¤„ç†æ•°æ® - å°†JSONå¯¹è±¡è½¬æ¢ä¸ºå­—ç¬¦ä¸²
 function preprocessData(data) {
     return data.map(item => {
         const processed = {};
@@ -630,48 +745,48 @@ function preprocessData(data) {
     });
 }
 
-// ½«¶à¸öÊı×éºÏ²¢ÎªÒ»¸öExcel¹¤×÷±í
+// å°†å¤šä¸ªæ•°ç»„åˆå¹¶ä¸ºä¸€ä¸ªExcelå·¥ä½œè¡¨
 function mergeArraysToWorkbook(arrays) {
-    // ºÏ²¢ËùÓĞÊı×é
+    // åˆå¹¶æ‰€æœ‰æ•°ç»„
     const mergedData = arrays
-          .filter(array => Array.isArray(array) && array.length > 0) // ¹ıÂË¿ÕÊı×é
+          .filter(array => Array.isArray(array) && array.length > 0) // è¿‡æ»¤ç©ºæ•°ç»„
           .reduce((acc, array) => acc.concat(array), [])
-          .map(data => preprocessData([data])[0]); // Ô¤´¦ÀíÃ¿¸öÊı¾İÏî
+          .map(data => preprocessData([data])[0]); // é¢„å¤„ç†æ¯ä¸ªæ•°æ®é¡¹
     
-    // ´´½¨¹¤×÷²¾ºÍ¹¤×÷±í
+    // åˆ›å»ºå·¥ä½œç°¿å’Œå·¥ä½œè¡¨
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(mergedData);
     
-    // Ìí¼Ó¹¤×÷±íµ½¹¤×÷²¾
-    XLSX.utils.book_append_sheet(wb, ws, "ºÏ²¢Êı¾İ");
+    // æ·»åŠ å·¥ä½œè¡¨åˆ°å·¥ä½œç°¿
+    XLSX.utils.book_append_sheet(wb, ws, "åˆå¹¶æ•°æ®");
     
     return wb;
 }
 function arraysToWorkbook(arrays) {
-    // ´¦ÀíÊı×é
+    // å¤„ç†æ•°ç»„
     const mergedData = arrays
-          .map(data => preprocessData([data])[0]); // Ô¤´¦ÀíÃ¿¸öÊı¾İÏî
+          .map(data => preprocessData([data])[0]); // é¢„å¤„ç†æ¯ä¸ªæ•°æ®é¡¹
     console.log(mergedData)
-    // ´´½¨¹¤×÷²¾ºÍ¹¤×÷±í
+    // åˆ›å»ºå·¥ä½œç°¿å’Œå·¥ä½œè¡¨
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(mergedData);
     
-    // Ìí¼Ó¹¤×÷±íµ½¹¤×÷²¾
-    XLSX.utils.book_append_sheet(wb, ws, "ºÏ²¢Êı¾İ");
+    // æ·»åŠ å·¥ä½œè¡¨åˆ°å·¥ä½œç°¿
+    XLSX.utils.book_append_sheet(wb, ws, "åˆå¹¶æ•°æ®");
     
     return wb;
 }
 
-// ÏÂÔØExcelÎÄ¼ş
+// ä¸‹è½½Excelæ–‡ä»¶
 function downloadExcel(workbook, filename = 'merged-data') {
     XLSX.writeFile(workbook, filename);
-    console.log(`ÎÄ¼şÒÑÏÂÔØ: ${filename}`);
+    console.log(`æ–‡ä»¶å·²ä¸‹è½½: ${filename}`);
 }
 
 function getNowDash(){
     var now = new Date();
     var year = now.getFullYear();
-    var month = now.getMonth() + 1; // ÔÂ·İÊÇ´Ó0¿ªÊ¼µÄ£¬ËùÒÔÒª¼Ó1
+    var month = now.getMonth() + 1; // æœˆä»½æ˜¯ä»0å¼€å§‹çš„ï¼Œæ‰€ä»¥è¦åŠ 1
     var date = now.getDate();
     var hours = now.getHours();
     var minutes = now.getMinutes();
@@ -680,41 +795,41 @@ function getNowDash(){
 }
 
 
-// ÍêÕûµ¼³öÁ÷³Ì-ÎŞºÏ²¢Êı×é
+// å®Œæ•´å¯¼å‡ºæµç¨‹-æ— åˆå¹¶æ•°ç»„
 async function exportData(arrays, filename) {
     try {
         await loadSheetJS();
         const workbook = arraysToWorkbook(arrays);
         downloadExcel(workbook, `${filename}-${getNowDash()}.xlsx`);
     } catch (error) {
-        console.error('µ¼³öÊ§°Ü:', error);
+        console.error('å¯¼å‡ºå¤±è´¥:', error);
     }
 }
-// ÍêÕûµ¼³öÁ÷³Ì
+// å®Œæ•´å¯¼å‡ºæµç¨‹
 async function exportMergedData(arrays, filename) {
     try {
         await loadSheetJS();
         const workbook = mergeArraysToWorkbook(arrays);
         downloadExcel(workbook, `${filename}-${getNowDash()}.xlsx`);
     } catch (error) {
-        console.error('µ¼³öÊ§°Ü:', error);
+        console.error('å¯¼å‡ºå¤±è´¥:', error);
     }
 }
-// ÍêÕûµ¼³öÁ÷³Ì-Êı¾İÇĞÆ¬
+// å®Œæ•´å¯¼å‡ºæµç¨‹-æ•°æ®åˆ‡ç‰‡
 async function exportMergedBigData(arrays, filename,pageSize = 100) {
     try {
         await loadSheetJS();
         for(var pgNum = 0;pgNum < arrays.length / pageSize + 0.1;pgNum++){
             console.log(pgNum)
             var workbook = mergeArraysToWorkbook(arrays.slice(pgNum * pageSize,(pgNum+1) * pageSize - 1));
-            downloadExcel(workbook, `${filename}-ĞòºÅ-${pgNum + 1}-${getNowDash()}.xlsx`);
+            downloadExcel(workbook, `${filename}-åºå·-${pgNum + 1}-${getNowDash()}.xlsx`);
         }
     } catch (error) {
-        console.error('µ¼³öÊ§°Ü:', error);
+        console.error('å¯¼å‡ºå¤±è´¥:', error);
     }
 }
 
-// »ñÈ¡iFLY_TOKEN
+// è·å–iFLY_TOKEN
 function getCookies() {
   var cookies = document.cookie.split('; ');
   var result = {};
