@@ -11,6 +11,7 @@ var personDataResult = []
 var trainingCheckListResult = []
 var flyTimeViaStageResult = []
 var flyTimeViaDateResult = []
+var flyTimeTotalResult = []
 var flyTaskViaNumResult = []
 
 // var staffJSZB = [...] Load on WPS
@@ -534,7 +535,93 @@ var ezIeb = {
                     return `${year}-${month}-${date}`
                 }
             } 
-        }
+        },
+        total:{
+            init:()=>{
+                flyTimeTotalResult = []
+                getCookies();
+            },
+            getViaStaffNum:(staffNum) => {
+                var tThis = ezIeb.flyTime.total
+                tThis.init()
+                tThis.fetch(staffNum)
+            },
+            getViaStaffList:(staffList) =>{
+                // init
+                var tThis = ezIeb.flyTime.total
+                tThis.init()
+                for(var i=0;i<staffList.length;i++){
+                    tThis.fetch(staffList[i])
+                }
+            },
+            fetch:(staffNum = 198273)=>{
+                var tThis = ezIeb.flyTime.total
+                fetch(`https://ifly.csair.com/api/profile-app/basic/cover?staffNum=${staffNum}&r=${Date.now()}`, {
+                    "headers": {
+                        "accept": "application/json, text/plain, */*",
+                        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+                        "cache-control": "no-cache",
+                        "ifly-token": IFLY_TOKEN,
+                        "pragma": "no-cache",
+                        "sec-ch-ua": "\"Google Chrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"",
+                        "sec-ch-ua-mobile": "?0",
+                        "sec-ch-ua-platform": "\"macOS\"",
+                        "sec-fetch-dest": "empty",
+                        "sec-fetch-mode": "cors",
+                        "sec-fetch-site": "same-origin"
+                    },
+                    "referrer": "https://ifly.csair.com/",
+                    "body": null,
+                    "method": "GET",
+                    "mode": "cors",
+                    "credentials": "include"
+                })
+                .then(response => response.json()) // 解析JSON格式的响应体
+                .then(data => {
+                    if(data.code == 200){
+                        // 数据处理:staffId添加员工号
+                        var eData = data.data.flyTimeQueryReturnDTO
+                        eData.staffId = staffNum
+                        // 数据处理:解码执照号&手机号 -> utils
+                        // eData.mobile = tThis.utils.decrypt(eData.mobile)
+                        // eData.identityNum = tThis.utils.decrypt(eData.identityNum)
+
+                        // 数据导出
+                        flyTimeTotalResult.push(eData)
+                        console.log("fetchFlyTimeTotalviaStuffNum",staffNum,"Completed")
+                    }else{
+                        console.error('fetchFlyTimeTotalviaStaffNum on Error:', staffNum, data.msg)
+                    }
+                }) // 处理数据
+                .catch((error) => console.error('fetchFlyTimeTotalviaStaffNum on Error:', staffNum, error)); // 捕获错误
+            },
+            down:()=>{
+                exportData(flyTimeTotalResult,"汇总飞行时间导出")
+            },
+            utils:{
+                decrypt:(e)=>{
+                    if (!e) return e;
+                    try {
+                        const t = atob(e);
+                        const i = new Uint8Array(t.length);
+                        
+                        for (let a = 0; a < t.length; a++) {
+                            i[a] = t.charCodeAt(a);
+                        }
+                        const s = [];
+                        for (let a = 0; a < i.length; a += 2) {
+                            const e = i[a] << 8 | (255 & i[a + 1]);
+                            s.push(e);
+                        }
+                        const n = s.map((e) => ~e);
+                        return String.fromCharCode(...n);
+                    } catch (error) {
+                        console.error('解密失败:', error);
+                        return null;
+                    }
+                }
+            }
+        },
     },
     passport:{
         init:()=>{
