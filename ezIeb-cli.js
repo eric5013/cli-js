@@ -76,8 +76,8 @@ var ezIeb = {
             }) // 处理数据
             .catch((error) => console.error('fetchTrainingRecordviaStaffNum on Error:', staffNum, error)); // 捕获错误
         },
-        down:(pageSize = 200)=>{
-            exportMergedBigData(trainingRecordResult,"培训记录导出",pageSize)
+        down:(pageSize = 180)=>{
+            exportMergedBigData(trainingRecordResult,"trainingRecord-培训记录导出",pageSize)
         }
     },
     trainingCheckList:{
@@ -136,7 +136,7 @@ var ezIeb = {
             .catch((error) => console.error('fetchTrainingCheckListviaStaffNum on Error:', staffNum, error)); // 捕获错误
         },
         down:(pageSize = 180)=>{
-            exportMergedBigData(trainingCheckListResult,"检查记录导出",pageSize)
+            exportMergedBigData(trainingCheckListResult,"trainingChecklist-检查记录导出",pageSize)
         }
     },
     qualList:{
@@ -299,8 +299,8 @@ var ezIeb = {
                     var eData = data.data
                     eData.staffId = staffNum
                     // 数据处理:解码执照号&手机号 -> utils
-                    // eData.mobile = tThis.utils.decrypt(eData.mobile)
-                    // eData.identityNum = tThis.utils.decrypt(eData.identityNum)
+                    eData.mobile = tThis.utils.decrypt(eData.mobile)
+                    eData.identityNum = tThis.utils.decrypt(eData.identityNum)
 
                     // 数据导出
                     personDataResult.push(eData)
@@ -312,7 +312,7 @@ var ezIeb = {
             .catch((error) => console.error('fetchPersonInfoviaStaffNum on Error:', staffNum, error)); // 捕获错误
         },
         down:()=>{
-            exportData(personDataResult,"人员信息导出")
+            exportData(personDataResult,"personData-人员信息导出")
         },
         utils:{
             decrypt:(e)=>{
@@ -394,7 +394,7 @@ var ezIeb = {
                 .catch((error) => console.error('fetchFlytimeViaStage on Error:', staffNum, error)); // 捕获错误
             },
             down:()=>{
-                exportMergedData(flyTimeViaStageResult,"飞行时间导出")
+                exportMergedData(flyTimeViaStageResult,"飞行时间导出-viaStage")
             }
         },
         viaDate:{
@@ -524,7 +524,7 @@ var ezIeb = {
             } catch (error) {console.error('fetchFlyTimeViaDateviaStaffNum on Error:', staffNum, error)}
             },
             down:()=>{
-                exportData(flyTimeViaDateResult,"飞行时间导出")
+                exportData(flyTimeViaDateResult,"飞行时间导出-iebDate")
             },
             utils:{
                 getDateDash:(dt)=>{
@@ -596,7 +596,7 @@ var ezIeb = {
                 .catch((error) => console.error('fetchFlyTimeTotalviaStaffNum on Error:', staffNum, error)); // 捕获错误
             },
             down:()=>{
-                exportData(flyTimeTotalResult,"汇总飞行时间导出")
+                exportData(flyTimeTotalResult,"飞行时间导出-total")
             },
             utils:{
                 decrypt:(e)=>{
@@ -677,7 +677,7 @@ var ezIeb = {
             .catch((error) => console.error('fetchPassport', staffNum, error)); // 捕获错误
         },
         down:()=>{
-            exportMergedData(passportResult,"护照签证导出")
+            exportMergedData(passportResult,"passport-护照签证导出")
         }
     },
     flyTask:{
@@ -739,12 +739,22 @@ var ezIeb = {
         }
     },
     auto:{
-         getViaStaffNum:(staffList)=>{
+         get:(staffList = staffJSZB)=>{
+            if(typeof staffList !== 'object'){
+                alert("staffList 未定义！")
+                return
+            }
             setTimeout(()=>ezIeb.trainingRecord.getViaStaffList(staffList),100)
             setTimeout(()=>ezIeb.trainingCheckList.getViaStaffList(staffList),15000)
             setTimeout(()=>ezIeb.qualList.getViaStaffList(staffList),30000)
             setTimeout(()=>ezIeb.skillLevel.getViaStaffList(staffList),45000)
             setTimeout(()=>ezIeb.personData.getViaStaffList(staffList),60000)
+            // 新增护照导出
+            setTimeout(()=>ezIeb.passport.getViaStaffList(staffList),80000)
+            // 飞行时间导出
+            setTimeout(()=>ezIeb.flyTime.viaStage.getViaStaffList(staffList),100000)
+            setTimeout(()=>ezIeb.flyTime.total.getViaStaffList(staffList),120000)
+
          },
          down:()=>{
             ezIeb.trainingRecord.down()
@@ -752,6 +762,9 @@ var ezIeb = {
             ezIeb.qualList.down()
             ezIeb.skillLevel.down()
             ezIeb.personData.down()
+            ezIeb.passport.down()
+            ezIeb.flyTime.viaStage.down()
+            ezIeb.flyTime.total.down()
          },
     },
     UI:{
