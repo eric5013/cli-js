@@ -921,7 +921,7 @@ async function exportMergedBigData(arrays, filename,pageSize = 100) {
         await loadSheetJS();
         for(var pgNum = 0;pgNum < arrays.length / pageSize + 0.1;pgNum++){
             console.log(pgNum)
-            var workbook = mergeArraysToWorkbook(arrays.slice(pgNum * pageSize,(pgNum+1) * pageSize - 1));
+            var workbook = mergeArraysToWorkbook(arrays.slice(pgNum * pageSize,(pgNum+1) * pageSize));
             downloadExcel(workbook, `${filename}-序号-${pgNum + 1}-${getNowDash()}.xlsx`);
         }
     } catch (error) {
