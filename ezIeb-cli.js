@@ -1,4 +1,5 @@
 // fetchTrainingRecord.js
+var versionID = "20260501"
 
 // base AUTH Identification
 var IFLY_TOKEN = ""
@@ -784,6 +785,7 @@ var ezIeb = {
                 }
             }
             document.querySelector(".portal-header__body-right").appendChild(dom)
+            console.log(`ezIeb CommandLine Tool Version:$(versionID)`)
         },
     }
 }
