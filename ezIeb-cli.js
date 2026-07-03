@@ -137,7 +137,7 @@ var ezIeb = {
             }) // 处理数据
             .catch((error) => console.error('fetchTrainingCheckListviaStaffNum on Error:', staffNum, error)); // 捕获错误
         },
-        down:(pageSize = 140)=>{
+        down:(pageSize = 120)=>{
             exportMergedBigData(trainingCheckListResult,"trainingChecklist-检查记录导出",pageSize)
         }
     },
