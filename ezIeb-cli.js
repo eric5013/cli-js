@@ -1,5 +1,5 @@
 // fetchTrainingRecord.js
-var versionID = "20260501"
+var versionID = "20260522"
 
 // base AUTH Identification
 var IFLY_TOKEN = ""
@@ -14,6 +14,7 @@ var flyTimeViaStageResult = []
 var flyTimeViaDateResult = []
 var flyTimeTotalResult = []
 var flyTaskViaNumResult = []
+var flyDetailResult = []
 
 // var staffJSZB = [...] Load on WPS
 var sfb_NewStaff = []
@@ -136,11 +137,14 @@ var ezIeb = {
             }) // 处理数据
             .catch((error) => console.error('fetchTrainingCheckListviaStaffNum on Error:', staffNum, error)); // 捕获错误
         },
-        down:(pageSize = 170)=>{
+        down:(pageSize = 180)=>{
             exportMergedBigData(trainingCheckListResult,"trainingChecklist-检查记录导出",pageSize)
         }
     },
     qualList:{
+        arg:{
+            showHistory:false
+        },
         init:()=>{
             qualListResult = []
             getCookies();
@@ -160,7 +164,7 @@ var ezIeb = {
         },
         fetch:(staffNum = 198273)=>{
             // "https://ifly.csair.com/api/profile-app/qual/qualList?staffNum=198273&showHistory=false&r=1768802358281"
-            fetch(`https://ifly.csair.com/api/profile-app/qual/qualList?staffNum=${staffNum}&showHistory=false&r=${Date.now()}`, {
+            fetch(`https://ifly.csair.com/api/profile-app/qual/qualList?staffNum=${staffNum}&showHistory=${ezIeb.qualList.arg.showHistory?"true":"false"}&r=${Date.now()}`, {
                 "headers": {
                     "accept": "application/json, text/plain, */*",
                     "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
@@ -737,7 +741,68 @@ var ezIeb = {
         down:()=>{
             exportMergedData(flyTaskViaNumResult,"航班任务导出")
         }
+        },
+        viaDetail:{
+        init:()=>{
+            flyDetailResult = []
+            getCookies();
+        },
+        getViaFlightInfo:(flightInfo) => {
+            var tThis = ezIeb.flyTask.viaDetail
+            tThis.init()
+            tThis.fetch(flightInfo)
+        },
+        getViaFlightList:(flightInfoList) =>{
+            // init
+            var tThis = ezIeb.flyTask.viaDetail
+            tThis.init()
+            for(var i=0;i<flightInfoList.length;i++){
+                tThis.fetch(flightInfoList[i])
+            }
+        },
+        fetch:(fltNum = "0427",date = '20260217',depCd = "CAN",arvCd = "LAX")=>{
+            fetch(`https://ifly.csair.com/api/os-app/mobile/work/taskQuery/task/his/flightCrew?&fltNum=${fltNum}&depCd=${depCd}&arvCd=${arvCd}&startDate=${date}&endDate=${date}&fleetCd=773&r=${Date.now()}`, {
+                "headers": {
+                    "accept": "application/json, text/plain, */*",
+                    "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+                    "cache-control": "no-cache",
+                    "IFLY-TOKEN": IFLY_TOKEN,
+                    "pragma": "no-cache",
+                    "sec-ch-ua": `Mozilla/5.0 (iPad; CPU OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 AliApp(EPLM_PAD/0.0.5) WindVane/8.6.1 TBIOS 2360x1640 WK`,
+                    "sec-ch-ua-mobile": "?0",
+                    "sec-ch-ua-platform": "mobile",
+                    "sec-fetch-dest": "empty",
+                    "sec-fetch-mode": "cors",
+                    "sec-fetch-site": "same-origin"
+                },
+                "referrer": "https://cdn-emasn.csair.com/",
+                "origin": "https://cdn-emasn.csair.com/",
+                "body": null,
+                "method": "GET",
+                "mode": "cors",
+                "credentials": "include"
+            })
+            // curl 'https://ifly.csair.com/api/os-app/mobile/work/taskQuery/task/his/flightCrew?startDate=20250508&endDate=20250508&fltNum=0328&arvCd=CAN&depCd=LAX&fleetCd=773&r=1777599855130'  -H 'Host: ifly.csair.com'  -H 'Accept: application/json, text/plain, */*'  -H 'Sec-Fetch-Site: same-site'  -H 'Accept-Language: zh-CN,zh-Hans;q=0.9'  -H 'Accept-Encoding: gzip, deflate, br'  -H 'Sec-Fetch-Mode: cors'  -H 'IFLY-TOKEN: eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZUNobiI6IuabvuWBpem5jyIsImxvZ2luVHlwZSI6IjQiLCJ1c2VybmFtZSI6IjI5ODk1NiIsImlzT2F1dGgiOjAsInRzIjoiMjAyNi0wNS0wMSAwOTo0MzoxOCJ9.lldZusdoEfo9wwMpmXlHJc-o9RHSCE9ZbiutvgrS374'  -H 'Origin: https://cdn-emasn.csair.com'  -H 'User-Agent: Mozilla/5.0 (iPad; CPU OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 AliApp(EPLM_PAD/0.0.5) WindVane/8.6.1 TBIOS 2360x1640 WK'  -H 'Referer: https://cdn-emasn.csair.com/'  -H 'Connection: keep-alive'  -H 'f-refer: wv_h5'  -H 'handleError: true'  -H 'Sec-Fetch-Dest: empty'  
+            .then(response => response.json()) // 解析JSON格式的响应体
+            .then(data => {
+                // 数据处理:新增flightNum，添加航班号
+                var eData = data.data
+                for(var j=0;j<eData.length;j++){
+                        eData[j].fltNum = fltNum
+                        eData[j].date = date
+                        eData[j].depCd = depCd
+                        eData[j].arvCd = arvCd
+                }
+                // 数据导出
+                flyDetailResult.push(eData)
+                console.log("fetchFlyTaskDetail",fltNum,"Completed")
+            }) // 处理数据
+            .catch((error) => console.error('fetchFlyTaskViaNum on Error:', fltNum, error)); // 捕获错误
+        },
+        down:()=>{
+            exportMergedData(flyDetailResult,"航班任务机组成员导出")
         }
+        },
     },
     auto:{
          get:(staffList = staffJSZB)=>{
@@ -785,7 +850,7 @@ var ezIeb = {
                 }
             }
             document.querySelector(".portal-header__body-right").appendChild(dom)
-            console.log(`ezIeb CommandLine Tool Version:$(versionID)`)
+            console.log(`ezIeb CommandLine Tool Version:${versionID}`)
         },
     }
 }
