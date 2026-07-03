@@ -879,7 +879,7 @@ function loadSheetJS() {
         script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
         script.onload = () => {
             // 加载成功后，立即把 XLSX 赋值给 MyXLSX
-            window.MyXLSX = window.XLSX; 
+            make_xlsx_lib(XLSX)
             resolve;
         };
         script.onerror = reject;
