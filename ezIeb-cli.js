@@ -877,7 +877,11 @@ function loadSheetJS() {
         
         const script = document.createElement('script');
         script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
-        script.onload = resolve;
+        script.onload = () => {
+            // 加载成功后，立即把 XLSX 赋值给 MyXLSX
+            window.MyXLSX = window.XLSX; 
+            resolve;
+        };
         script.onerror = reject;
         document.head.appendChild(script);
     });
