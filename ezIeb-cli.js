@@ -66,7 +66,7 @@ var ezIeb = {
             .then(response => response.json()) // 解析JSON格式的响应体
             .then(data => {
                 // 数据处理:staffId添加员工号
-                var eData = data.list
+                var eData = data.data
                 for(var j=0;j<eData.length;j++){
                     if(eData[j].staffId !== ""){
                         eData[j].staffId = staffNum
