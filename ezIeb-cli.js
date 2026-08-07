@@ -590,24 +590,24 @@ var ezIeb = {
                             staffName: tds.eq(1).text().trim(),
                             baseReg: tds.eq(2).text().trim(),
                             baseOp: tds.eq(3).text().trim(),
-                            techLevel: tds.eq(4).text().trim(),
+                            currentLevel: tds.eq(4).text().trim(),
 
                             startDate: tds.eq(5).text().trim(),
                             endDate: tds.eq(6).text().trim(),
 
                             flyTime: tds.eq(7).text().trim(),
-                            expTime: tds.eq(8).text().trim(),
+                            expThrTotal: tds.eq(8).text().trim(),
                             legNum: tds.eq(9).text().trim(),
 
                             nightTime: tds.eq(10).text().trim(),
-                            leftTime: tds.eq(11).text().trim(),
-                            rightTime: tds.eq(12).text().trim(),
+                            leftThr: tds.eq(11).text().trim(),
+                            rightThr: tds.eq(12).text().trim(),
 
                             simTime: tds.eq(13).text().trim(),
                             localTime: tds.eq(14).text().trim(),
 
-                            landTotal: tds.eq(15).text().trim(),
-                            landRoute: tds.eq(16).text().trim(),
+                            totalControl: tds.eq(15).text().trim(),
+                            hxControl: tds.eq(16).text().trim(),
                             landLocal: tds.eq(17).text().trim(),
 
                             manualTime: tds.eq(18).text().trim(),
