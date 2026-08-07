@@ -140,7 +140,7 @@ const ezFetcher = {
 // list 格式: [[staffNum, startDate, endDate], ...]
 // ==============================
 const iebFetcher = {
-    concurrency: 2, // IEB 很慢，建议 2
+    concurrency: 4, // IEB 很慢，建议 2
     stats: { total: 0, done: 0 },
 
     async batch({ list, urlBuilder, processor, label }) {
