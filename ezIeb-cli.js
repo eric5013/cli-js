@@ -1,1020 +1,1017 @@
-// fetchTrainingRecord.js
-var versionID = "20260522"
+// =============================================================
+// ezIeb-cli.js  (完整重构版 - 单文件)
+// Version: 20260522-FIXED
+// 修复: 空文件 / collector 共享 / 分页逻辑 / 数据赋值
+// =============================================================
 
-// base AUTH Identification
-var IFLY_TOKEN = ""
-// define Global Variable
-var cookies = {}
-var trainingRecordResult = []
-var qualListResult = []
-var skillLevelResult = []
-var personDataResult = []
-var trainingCheckListResult = []
-var flyTimeViaStageResult = []
-var flyTimeViaDateResult = []
-var flyTimeTotalResult = []
-var flyTaskViaNumResult = []
-var flyDetailResult = []
+// ==============================
+// 全局变量
+// ==============================
+var versionID = "20260807";
 
-// var staffJSZB = [...] Load on WPS
-var sfb_NewStaff = []
-var newStaffAll = []
+var IFLY_TOKEN = "";
+var cookies = {};
 
-var newFODate = []
-var newFO = []
-// 核心函数定义
+var trainingRecordResult = [];
+var qualListResult = [];
+var skillLevelResult = [];
+var personDataResult = [];
+var trainingCheckListResult = [];
+var flyTimeViaStageResult = [];
+var flyTimeViaDateResult = [];
+var flyTimeTotalResult = [];
+var flyTaskViaNumResult = [];
+var flyDetailResult = [];
+var passportResult = [];
+
+var staffJSZB = [];
+var sfb_NewStaff = [];
+var newStaffAll = [];
+// var newFODate = [];
+// var newFO = [];
+
+const ezFetcher = {
+    concurrency: 4,
+
+    /* 单请求 */
+    async request({ url, staffNum, processor, label }) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000);
+
+        try {
+            const res = await fetch(url, {
+                method: "GET",
+                credentials: "include",
+                signal: controller.signal,
+                headers: {
+                    "accept": "application/json, text/plain, */*",
+                    "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+                    "cache-control": "no-cache",
+                    "ifly-token": IFLY_TOKEN,
+                    "pragma": "no-cache",
+                    "sec-ch-ua": "\"Google Chrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand)\";v=\"24\"",
+                    "sec-ch-ua-mobile": "?0",
+                    "sec-ch-ua-platform": "\"macOS\"",
+                    "sec-fetch-dest": "empty",
+                    "sec-fetch-mode": "cors",
+                    "sec-fetch-site": "same-origin"
+                }
+            });
+
+            clearTimeout(timeout);
+
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+            const json = await res.json();
+            if (json.code && json.code !== 200) {
+                throw new Error(json.msg || "业务异常");
+            }
+
+            const data = processor(json.data ?? json, staffNum);
+            return data;
+        } catch (err) {
+            console.error(`❌ ${label} staff=${staffNum}`, err.message);
+            return null;
+        }
+    },
+
+    async batch({ list, urlBuilder, processor, label, targetArray }) {
+        const stats = { total: list.length, done: 0 };
+        const queue = list.map(staffNum => ({ staffNum }));
+        const collector = [];
+
+        const workers = Array.from({ length: this.concurrency },
+            () => this._worker({ queue, urlBuilder, processor, label, stats, collector })
+        );
+
+        await Promise.all(workers);
+
+        if (targetArray) {
+            targetArray.length = 0;
+            targetArray.push(...collector);
+        }
+
+        return collector;
+    },
+
+    async _worker({ queue, urlBuilder, processor, label, stats, collector }) {
+        while (queue.length) {
+            const task = queue.shift();
+            try {
+                const rawData = await this.request({
+                    url: urlBuilder(task.staffNum),
+                    staffNum: task.staffNum,
+                    processor,
+                    label
+                });
+
+                if (rawData !== null && rawData !== undefined) {
+                    if (Array.isArray(rawData)) {
+                        collector.push(...rawData);
+                    } else {
+                        collector.push(rawData);
+                    }
+                }
+            } catch (_) {
+
+            }
+
+            stats.done++;
+            this.progress(label, stats);
+
+            // ✅ 给浏览器喘息机会，避免被掐请求
+            await new Promise(r => setTimeout(r, 30));
+        }
+    },
+
+    progress(label, stats) {
+        const { done, total } = stats;
+        const pct = total > 0 ? Math.min((done / total) * 100, 100).toFixed(1) : "0.0";
+        const barLen = Math.min(Math.floor(pct / 2), 50);
+        const bar = "█".repeat(barLen);
+        console.log(
+            `%c[${label}] [${bar.padEnd(50)}] ${pct}% (${done}/${total})`,
+            "color:#4caf50;font-weight:bold"
+        );
+    }
+};
+// ==============================
+// ✅ IEB 专用调度器（HTML 接口，使用 $.get）
+// list 格式: [[staffNum, startDate, endDate], ...]
+// ==============================
+const iebFetcher = {
+    concurrency: 2, // IEB 很慢，建议 2
+    stats: { total: 0, done: 0 },
+
+    async batch({ list, urlBuilder, processor, label }) {
+        const queue = list.slice();
+        this.stats.total = queue.length;
+        this.stats.done = 0;
+
+        const collector = [];
+
+        const workers = Array.from({ length: this.concurrency }, () =>
+            this._worker({ queue, urlBuilder, processor, label, collector })
+        );
+
+        await Promise.all(workers);
+        return collector;
+    },
+
+    async _worker({ queue, urlBuilder, processor, label, collector }) {
+        while (queue.length) {
+            const task = queue.shift();
+            try {
+                const html = await this.request(urlBuilder(task));
+                const data = processor(html, task);
+                if (data) collector.push(data);
+            } catch (e) {
+                console.error(`❌ ${label} staff=${task[0]}`, e.message);
+            }
+
+            this.stats.done++;
+            this.progress(label);
+            await new Promise(r => setTimeout(r, 50)); // 给 IEB 喘气
+        }
+    },
+
+    request(url) {
+        return new Promise((resolve, reject) => {
+            $.get(url)
+                .done(html => resolve(html))
+                .fail(err => reject(err));
+        });
+    },
+
+    progress(label) {
+        const { done, total } = this.stats;
+        const pct = Math.min((done / total) * 100, 100).toFixed(1);
+        const bar = "█".repeat(Math.floor(pct / 2));
+        console.log(
+            `%c[${label}] [${bar.padEnd(50)}] ${pct}% (${done}/${total})`,
+            "color:#2196f3"
+        );
+    },
+
+    /**
+     * ✅ 唯一正确的 IEB HTML 解析方法
+     * 不依赖 parseHTML 的坑爹行为
+     */
+    parseTable(html) {
+        if (!html) return null;
+
+        // ✅ 关键：挂到临时容器，再当上下文查找
+        const $root = $("<div>").html(html);
+
+        // 先查子孙
+        let $page = $root.find(".staticPage.newPage");
+
+        // 再兜底：如果 .staticPage.newPage 是顶层并列节点
+        if (!$page.length) {
+            $page = $root.filter(".staticPage.newPage");
+        }
+
+        if (!$page.length) {
+            return null;
+        }
+
+        const $tr = $page.find("tbody.list tr");
+        return $tr.length ? $tr : null;
+    }
+};
+
+
 var ezIeb = {
-    trainingRecord:{
-        init:()=>{
-            trainingRecordResult = []
+    // ------------------------------
+    // 培训记录
+    // ------------------------------
+    trainingRecord: {
+        init() {
+            trainingRecordResult = [];
             getCookies();
         },
-        getViaStaffNum:(staffNum) => {
-            var tThis = ezIeb.trainingRecord
-            tThis.init()
-            tThis.fetch(staffNum)
+        getViaStaffNum(staffNum) {
+            this.getViaStaffList([staffNum]);
         },
-        getViaStaffList:(staffList) =>{
-            // init
-            var tThis = ezIeb.trainingRecord
-            tThis.init()
-            for(var i=0;i<staffList.length;i++){
-                tThis.fetch(staffList[i])
-            }
-        },
-        fetch:(staffNum = 198273)=>{
-            fetch(`https://ifly.csair.com/api/profile-app/train/trainResult?queryType=1&staffNum=${staffNum}&pageSize=1000&pageNum=1&r=${Date.now()}`, {
-                "headers": {
-                    "accept": "application/json, text/plain, */*",
-                    "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-                    "cache-control": "no-cache",
-                    "ifly-token": IFLY_TOKEN,
-                    "pragma": "no-cache",
-                    "sec-ch-ua": "\"Google Chrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"",
-                    "sec-ch-ua-mobile": "?0",
-                    "sec-ch-ua-platform": "\"macOS\"",
-                    "sec-fetch-dest": "empty",
-                    "sec-fetch-mode": "cors",
-                    "sec-fetch-site": "same-origin"
-                },
-                "referrer": "https://ifly.csair.com/",
-                "body": null,
-                "method": "GET",
-                "mode": "cors",
-                "credentials": "include"
-            })
-            .then(response => response.json()) // 解析JSON格式的响应体
-            .then(data => {
-                // 数据处理:staffId添加员工号
-                var eData = data.data
-                for(var j=0;j<eData.length;j++){
-                    if(eData[j].staffId !== ""){
-                        eData[j].staffId = staffNum
-                    }
+        getViaStaffList(staffList) {
+            this.init();
+            return ezFetcher.batch({
+                list: staffList,
+                label: "培训记录",
+                targetArray: trainingRecordResult,
+                urlBuilder: sn =>
+                    `https://ifly.csair.com/api/profile-app/train/trainResult?queryType=1&staffNum=${sn}&pageSize=1000&pageNum=1&r=${Date.now()}`,
+                processor: (data, staffNum) => {
+                    const list = Array.isArray(data) ? data : [];
+                    list.forEach(i => { if (i && i.staffId !== "") i.staffId = staffNum; });
+                    return list;
                 }
-                // 数据导出
-                trainingRecordResult.push(eData)
-                console.log("fetchTrainingRecordviaStuffNum",staffNum,"Completed")
-            }) // 处理数据
-            .catch((error) => console.error('fetchTrainingRecordviaStaffNum on Error:', staffNum, error)); // 捕获错误
+            });
         },
-        down:(pageSize = 180)=>{
-            exportMergedBigData(trainingRecordResult,"trainingRecord-培训记录导出",pageSize)
+        down(pageSize = 25000) {
+            exportMergedBigData(trainingRecordResult, "trainingRecord-培训记录导出", pageSize);
         }
     },
-    trainingCheckList:{
-        init:()=>{
-            trainingCheckListResult = []
-            getCookies();
-        },
-        getViaStaffNum:(staffNum) => {
-            var tThis = ezIeb.trainingCheckList
-            tThis.init()
-            tThis.fetch(staffNum)
-        },
-        getViaStaffList:(staffList) =>{
-            // init
-            var tThis = ezIeb.trainingCheckList
-            tThis.init()
-            for(var i=0;i<staffList.length;i++){
-                tThis.fetch(staffList[i])
-            }
-        },
-        fetch:(staffNum = 198273)=>{
-            //     https://ifly.csair.com/api/profile-app/train/trainCheckList?queryType=1&staffNum=198304&fleetCd=&qualCd=&trainName=&r=1769519282231
-            fetch(`https://ifly.csair.com/api/profile-app/train/trainCheckList?queryType=1&staffNum=${staffNum}&fleetCd=&qualCd=&trainName=&r=${Date.now()}`, {
-                "headers": {
-                    "accept": "application/json, text/plain, */*",
-                    "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-                    "cache-control": "no-cache",
-                    "ifly-token": IFLY_TOKEN,
-                    "pragma": "no-cache",
-                    "sec-ch-ua": "\"Google Chrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"",
-                    "sec-ch-ua-mobile": "?0",
-                    "sec-ch-ua-platform": "\"macOS\"",
-                    "sec-fetch-dest": "empty",
-                    "sec-fetch-mode": "cors",
-                    "sec-fetch-site": "same-origin"
-                },
-                "referrer": "https://ifly.csair.com/",
-                "body": null,
-                "method": "GET",
-                "mode": "cors",
-                "credentials": "include"
-            })
-            .then(response => response.json()) // 解析JSON格式的响应体
-            .then(data => {
-                // 数据处理:staffId添加员工号
-                var eData = data.data
-                for(var j=0;j<eData.length;j++){
-                    if(eData[j].staffId !== ""){
-                        eData[j].staffId = staffNum
-                    }
-                }
-                // 数据导出
-                trainingCheckListResult.push(eData)
-                console.log("fetchTrainingCheckListviaStuffNum",staffNum,"Completed")
-            }) // 处理数据
-            .catch((error) => console.error('fetchTrainingCheckListviaStaffNum on Error:', staffNum, error)); // 捕获错误
-        },
-        down:(pageSize = 120)=>{
-            exportMergedBigData(trainingCheckListResult,"trainingChecklist-检查记录导出",pageSize)
-        }
-    },
-    qualList:{
-        arg:{
-            showHistory:false
-        },
-        init:()=>{
-            qualListResult = []
-            getCookies();
-        },
-        getViaStaffNum:(staffNum) => {
-            var tThis = ezIeb.qualList
-            tThis.init()
-            tThis.fetch(staffNum)
-        },
-        getViaStaffList:(staffList) =>{
-            // init
-            var tThis = ezIeb.qualList
-            tThis.init()
-            for(var i=0;i<staffList.length;i++){
-                tThis.fetch(staffList[i])
-            }
-        },
-        fetch:(staffNum = 198273)=>{
-            // "https://ifly.csair.com/api/profile-app/qual/qualList?staffNum=198273&showHistory=false&r=1768802358281"
-            fetch(`https://ifly.csair.com/api/profile-app/qual/qualList?staffNum=${staffNum}&showHistory=${ezIeb.qualList.arg.showHistory?"true":"false"}&r=${Date.now()}`, {
-                "headers": {
-                    "accept": "application/json, text/plain, */*",
-                    "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-                    "cache-control": "no-cache",
-                    "ifly-token": IFLY_TOKEN,
-                    "pragma": "no-cache",
-                    "sec-ch-ua": "\"Google Chrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"",
-                    "sec-ch-ua-mobile": "?0",
-                    "sec-ch-ua-platform": "\"macOS\"",
-                    "sec-fetch-dest": "empty",
-                    "sec-fetch-mode": "cors",
-                    "sec-fetch-site": "same-origin"
-                },
-                "referrer": "https://ifly.csair.com/",
-                "body": null,
-                "method": "GET",
-                "mode": "cors",
-                "credentials": "include"
-            })
-            .then(response => response.json()) // 解析JSON格式的响应体
-            .then(data => {
-                // 数据处理:新增staffId,staffId添加员工号
-                var eData = data.data
-                for(var j=0;j<eData.length;j++){
-                        eData[j].staffId = staffNum
-                }
-                // 数据导出
-                qualListResult.push(eData)
-                console.log("fetchQualListViaStaffNum",staffNum,"Completed")
-            }) // 处理数据
-            .catch((error) => console.error('fetchQualListViaStaffNum on Error:', staffNum, error)); // 捕获错误
-        },
-        down:()=>{
-            exportMergedData(qualListResult,"运行资格导出")
-        }
-    },
-    skillLevel:{
-        init:()=>{
-            skillLevelResult = []
-            getCookies();
-        },
-        getViaStaffNum:(staffNum) => {
-            var tThis = ezIeb.skillLevel
-            tThis.init()
-            tThis.fetch(staffNum)
-        },
-        getViaStaffList:(staffList) =>{
-            // init
-            var tThis = ezIeb.skillLevel
-            tThis.init()
-            for(var i=0;i<staffList.length;i++){
-                tThis.fetch(staffList[i])
-            }
-        },
-        fetch:(staffNum = 198273)=>{
-            fetch(`https://ifly.csair.com/api/profile-app/qual/skillLevelList?staffNum=${staffNum}&showHistory=true&r=${Date.now()}`, {
-                "headers": {
-                    "accept": "application/json, text/plain, */*",
-                    "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-                    "cache-control": "no-cache",
-                    "ifly-token": IFLY_TOKEN,
-                    "pragma": "no-cache",
-                    "sec-ch-ua": "\"Google Chrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"",
-                    "sec-ch-ua-mobile": "?0",
-                    "sec-ch-ua-platform": "\"macOS\"",
-                    "sec-fetch-dest": "empty",
-                    "sec-fetch-mode": "cors",
-                    "sec-fetch-site": "same-origin"
-                },
-                "referrer": "https://ifly.csair.com/",
-                "body": null,
-                "method": "GET",
-                "mode": "cors",
-                "credentials": "include"
-            })
-            .then(response => response.json()) // 解析JSON格式的响应体
-            .then(data => {
-                // 数据处理:新增staffId,staffId添加员工号
-                var eData = data.data
-                for(var j=0;j<eData.length;j++){
-                        eData[j].staffId = staffNum
-                }
-                // 数据导出
-                skillLevelResult.push(eData)
-                console.log("fetchSkillLevelList",staffNum,"Completed")
-            }) // 处理数据
-            .catch((error) => console.error('fetchSkillLevelList on Error:', staffNum, error)); // 捕获错误
-        },
-        down:()=>{
-            exportMergedData(skillLevelResult,"技术等级导出")
-        }
-    },
-    personData:{
-        init:()=>{
-            personDataResult = []
-            getCookies();
-        },
-        getViaStaffNum:(staffNum) => {
-            var tThis = ezIeb.personData
-            tThis.init()
-            tThis.fetch(staffNum)
-        },
-        getViaStaffList:(staffList) =>{
-            // init
-            var tThis = ezIeb.personData
-            tThis.init()
-            for(var i=0;i<staffList.length;i++){
-                tThis.fetch(staffList[i])
-            }
-        },
-        fetch:(staffNum = 198273)=>{
-            var tThis = ezIeb.personData
-            fetch(`https://ifly.csair.com/api/profile-app/basic/cover?staffNum=${staffNum}&r=${Date.now()}`, {
-                "headers": {
-                    "accept": "application/json, text/plain, */*",
-                    "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-                    "cache-control": "no-cache",
-                    "ifly-token": IFLY_TOKEN,
-                    "pragma": "no-cache",
-                    "sec-ch-ua": "\"Google Chrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"",
-                    "sec-ch-ua-mobile": "?0",
-                    "sec-ch-ua-platform": "\"macOS\"",
-                    "sec-fetch-dest": "empty",
-                    "sec-fetch-mode": "cors",
-                    "sec-fetch-site": "same-origin"
-                },
-                "referrer": "https://ifly.csair.com/",
-                "body": null,
-                "method": "GET",
-                "mode": "cors",
-                "credentials": "include"
-            })
-            .then(response => response.json()) // 解析JSON格式的响应体
-            .then(data => {
-                if(data.code == 200){
-                    // 数据处理:staffId添加员工号
-                    var eData = data.data
-                    eData.staffId = staffNum
-                    // 数据处理:解码执照号&手机号 -> utils
-                    eData.mobile = tThis.utils.decrypt(eData.mobile)
-                    eData.identityNum = tThis.utils.decrypt(eData.identityNum)
 
-                    // 数据导出
-                    personDataResult.push(eData)
-                    console.log("fetchPersonInfoviaStuffNum",staffNum,"Completed")
-                }else{
-                    console.error('fetchPersonInfoviaStaffNum on Error:', staffNum, data.msg)
+    // ------------------------------
+    // 检查记录
+    // ------------------------------
+    trainingCheckList: {
+        init() {
+            trainingCheckListResult = [];
+            getCookies();
+        },
+        getViaStaffNum(staffNum) {
+            this.getViaStaffList([staffNum]);
+        },
+        getViaStaffList(staffList) {
+            this.init();
+            return ezFetcher.batch({
+                list: staffList,
+                label: "检查记录",
+                targetArray: trainingCheckListResult,
+                urlBuilder: sn =>
+                    `https://ifly.csair.com/api/profile-app/train/trainCheckList?queryType=1&staffNum=${sn}&fleetCd=&qualCd=&trainName=&r=${Date.now()}`,
+                processor: (data, staffNum) => {
+                    const list = Array.isArray(data) ? data : [];
+                    list.forEach(i => { if (i && i.staffId !== "") i.staffId = staffNum; });
+                    return list;
                 }
-            }) // 处理数据
-            .catch((error) => console.error('fetchPersonInfoviaStaffNum on Error:', staffNum, error)); // 捕获错误
+            });
         },
-        down:()=>{
-            exportData(personDataResult,"personData-人员信息导出")
+        down(pageSize = 8000) {
+            exportMergedBigData(trainingCheckListResult, "trainingChecklist-检查记录导出", pageSize);
+        }
+    },
+
+    // ------------------------------
+    // 运行资格
+    // ------------------------------
+    qualList: {
+        arg: { showHistory: true },
+        init() {
+            qualListResult = [];
+            getCookies();
         },
-        utils:{
-            decrypt:(e)=>{
+        getViaStaffNum(staffNum) {
+            this.getViaStaffList([staffNum]);
+        },
+        getViaStaffList(staffList) {
+            this.init();
+            return ezFetcher.batch({
+                list: staffList,
+                label: "运行资格",
+                targetArray: qualListResult,
+                urlBuilder: sn =>
+                    `https://ifly.csair.com/api/profile-app/qual/qualList?staffNum=${sn}&showHistory=${this.arg.showHistory ? "true" : "false"}&r=${Date.now()}`,
+                processor: (data, staffNum) => {
+                    const list = Array.isArray(data) ? data : [];
+                    list.forEach(i => { if (i) i.staffId = staffNum; });
+                    return list;
+                }
+            });
+        },
+        down() {
+            exportMergedData(qualListResult, "运行资格导出");
+        }
+    },
+
+    // ------------------------------
+    // 技术等级
+    // ------------------------------
+    skillLevel: {
+        init() {
+            skillLevelResult = [];
+            getCookies();
+        },
+        getViaStaffNum(staffNum) {
+            this.getViaStaffList([staffNum]);
+        },
+        getViaStaffList(staffList) {
+            this.init();
+            return ezFetcher.batch({
+                list: staffList,
+                label: "技术等级",
+                targetArray: skillLevelResult,
+                urlBuilder: sn =>
+                    `https://ifly.csair.com/api/profile-app/qual/skillLevelList?staffNum=${sn}&showHistory=true&r=${Date.now()}`,
+                processor: (data, staffNum) => {
+                    const list = Array.isArray(data) ? data : [];
+                    list.forEach(i => { if (i) i.staffId = staffNum; });
+                    return list;
+                }
+            });
+        },
+        down() {
+            exportMergedData(skillLevelResult, "技术等级导出");
+        }
+    },
+
+    // ------------------------------
+    // 人员信息
+    // ------------------------------
+    personData: {
+        init() {
+            personDataResult = [];
+            getCookies();
+        },
+        getViaStaffNum(staffNum) {
+            this.getViaStaffList([staffNum]);
+        },
+        getViaStaffList(staffList) {
+            this.init();
+            return ezFetcher.batch({
+                list: staffList,
+                label: "人员信息",
+                targetArray: personDataResult,
+                urlBuilder: sn =>
+                    `https://ifly.csair.com/api/profile-app/basic/cover?staffNum=${sn}&r=${Date.now()}`,
+                processor: (data, staffNum) => {
+                    if (!data) return [];
+                    data.staffId = staffNum;
+                    data.mobile = ezIeb.personData.utils.decrypt(data.mobile);
+                    data.identityNum = ezIeb.personData.utils.decrypt(data.identityNum);
+                    return data;
+                }
+            });
+        },
+        down() {
+            exportData(personDataResult, "personData-人员信息导出");
+        },
+        utils: {
+            decrypt(e) {
                 if (!e) return e;
                 try {
                     const t = atob(e);
                     const i = new Uint8Array(t.length);
-                    
                     for (let a = 0; a < t.length; a++) {
                         i[a] = t.charCodeAt(a);
                     }
                     const s = [];
                     for (let a = 0; a < i.length; a += 2) {
-                        const e = i[a] << 8 | (255 & i[a + 1]);
-                        s.push(e);
+                        s.push(i[a] << 8 | (255 & i[a + 1]));
                     }
-                    const n = s.map((e) => ~e);
-                    return String.fromCharCode(...n);
+                    return String.fromCharCode(...s.map(v => ~v));
                 } catch (error) {
-                    console.error('解密失败:', error);
+                    console.error("解密失败:", error);
                     return null;
                 }
             }
         }
     },
-    flyTime:{
-        viaStage:{
-            //基于阶段获取
-            init:()=>{
-                flyTimeViaStageResult = []
+
+    // ------------------------------
+    // 护照签证（已修复：空对象/空数据兜底）
+    // ------------------------------
+    passport: {
+        init() {
+            passportResult = [];
+            getCookies();
+        },
+        getViaStaffNum(staffNum) {
+            this.getViaStaffList([staffNum]);
+        },
+        getViaStaffList(staffList) {
+            this.init();
+            return ezFetcher.batch({
+                list: staffList,
+                label: "护照签证",
+                targetArray: passportResult,
+                urlBuilder: sn =>
+                    `https://ifly.csair.com/api/profile-app/license/passport?staffNum=${sn}&showHistory=true&r=${Date.now()}`,
+                processor: (data, staffNum) => {
+                    // ✅ 关键修复：接口可能返回 {} / null / 单对象
+                    let list = [];
+                    if (Array.isArray(data)) {
+                        list = data;
+                    } else if (data && typeof data === "object") {
+                        // 单对象也包成数组
+                        list = [data];
+                    }
+                    list.forEach(i => { if (i) i.staffId = staffNum; });
+                    return list;
+                }
+            });
+        },
+        down() {
+            exportMergedData(passportResult, "passport-护照签证导出");
+        }
+    },
+
+    // ------------------------------
+    // 飞行时间（按阶段）
+    // ------------------------------
+    flyTime: {
+        viaStage: {
+            init() {
+                flyTimeViaStageResult = [];
                 getCookies();
             },
-            getViaStaffNum:(staffNum) => {
-                var tThis = ezIeb.flyTime.viaStage
-                tThis.init()
-                tThis.fetch(staffNum)
+            getViaStaffNum(staffNum) {
+                this.getViaStaffList([staffNum]);
             },
-            getViaStaffList:(staffList) =>{
-                // init
-                var tThis = ezIeb.flyTime.viaStage
-                tThis.init()
-                for(var i=0;i<staffList.length;i++){
-                    tThis.fetch(staffList[i])
-                }
-            },
-            fetch:(staffNum = 198273)=>{
-                //     https://ifly.csair.com/api/profile-app/flyTime/stage?staffNum=298956     &queryType=1&pageSize=999&pageNum=1&r=1769740566997
-                fetch(`https://ifly.csair.com/api/profile-app/flyTime/stage?staffNum=${staffNum}&queryType=1&pageSize=999&pageNum=1&r=${Date.now()}`, {
-                    "headers": {
-                        "accept": "application/json, text/plain, */*",
-                        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-                        "cache-control": "no-cache",
-                        "ifly-token": IFLY_TOKEN,
-                        "pragma": "no-cache",
-                        "sec-ch-ua": "\"Google Chrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"",
-                        "sec-ch-ua-mobile": "?0",
-                        "sec-ch-ua-platform": "\"macOS\"",
-                        "sec-fetch-dest": "empty",
-                        "sec-fetch-mode": "cors",
-                        "sec-fetch-site": "same-origin"
-                    },
-                    "referrer": "https://ifly.csair.com/",
-                    "body": null,
-                    "method": "GET",
-                    "mode": "cors",
-                    "credentials": "include"
-                })
-                .then(response => response.json()) // 解析JSON格式的响应体
-                .then(data => {
-                    // 数据处理:新增staffId,staffId添加员工号
-                    var eData = data.data.list
-                    for(var j=0;j<eData.length;j++){
-                            eData[j].staffId = staffNum
+            getViaStaffList(staffList) {
+                this.init();
+                return ezFetcher.batch({
+                    list: staffList,
+                    label: "飞行时间(阶段)",
+                    targetArray: flyTimeViaStageResult,
+                    urlBuilder: sn =>
+                        `https://ifly.csair.com/api/profile-app/flyTime/stage?staffNum=${sn}&queryType=1&pageSize=999&pageNum=1&r=${Date.now()}`,
+                    processor: (data, staffNum) => {
+                        const list = Array.isArray(data) ? data : (data.list || []);
+                        list.forEach(i => { if (i) i.staffId = staffNum; });
+                        return list;
                     }
-                    // 数据导出
-                    flyTimeViaStageResult.push(eData)
-                    console.log("fetchFlytimeViaStage",staffNum,"Completed")
-                }) // 处理数据
-                .catch((error) => console.error('fetchFlytimeViaStage on Error:', staffNum, error)); // 捕获错误
+                });
             },
-            down:()=>{
-                exportMergedData(flyTimeViaStageResult,"飞行时间导出-viaStage")
+            down() {
+                exportMergedData(flyTimeViaStageResult, "飞行时间导出-viaStage");
             }
         },
-        viaDate:{
-            // 基于起止日期获取
-            init:()=>{
-                flyTimeViaDateResult = []
+
+        // ------------------------------
+        // 飞行时间（按日期）
+        // ------------------------------
+        viaDate: {
+            init() {
+                flyTimeViaDateResult = [];
                 getCookies();
             },
-            getViaStaffNum:(staffArgs) => {
-                var tThis = ezIeb.flyTime.viaDate
-                tThis.init()
-                tThis.fetch(staffArgs)
+            getViaStaffNum(staffArgs) {
+                this.getViaStaffList([staffArgs]);
             },
-            getViaStaffList:(staffList) =>{
-                // init
-                var tThis = ezIeb.flyTime.viaDate
-                tThis.init()
-                for(var i=0;i<staffList.length;i++){
-                    tThis.fetch(staffList[i])
-                }
-            },
-            fetch:(arr = [198273,"2013-01-01",new Date()])=>{
-                var staffNum = arr[0]
-                var startDate = arr[1]
-                var endDate = arr[2]
-
-                var tThis = ezIeb.flyTime.viaDate
-                //     https://ifly.csair.com/api/profile-app/flyTime/flyTimeByDate?staffNum=283385&queryType=3&strTime=2026-01-01&endTime=2026-12-31&r=1769873143877
-                fetch(`https://ifly.csair.com/api/profile-app/flyTime/flyTimeByDate?staffNum=${staffNum}&queryType=3&strTime=${tThis.utils.getDateDash(startDate)}&endTime=${tThis.utils.getDateDash(endDate)}&r=${Date.now()}`, {
-                    "headers": {
-                        "accept": "application/json, text/plain, */*",
-                        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-                        "cache-control": "no-cache",
-                        "ifly-token": IFLY_TOKEN,
-                        "pragma": "no-cache",
-                        "sec-ch-ua": "\"Google Chrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"",
-                        "sec-ch-ua-mobile": "?0",
-                        "sec-ch-ua-platform": "\"macOS\"",
-                        "sec-fetch-dest": "empty",
-                        "sec-fetch-mode": "cors",
-                        "sec-fetch-site": "same-origin"
+            getViaStaffList(staffList) {
+                this.init();
+                return ezFetcher.batch({
+                    list: staffList,
+                    label: "飞行时间(日期)",
+                    targetArray: flyTimeViaDateResult,
+                    urlBuilder: arr => {
+                        var sn = Array.isArray(arr) ? arr[0] : arr;
+                        var start = (Array.isArray(arr) && arr[1]) || "2013-01-01";
+                        var end = (Array.isArray(arr) && arr[2]) || new Date();
+                        return `https://ifly.csair.com/api/profile-app/flyTime/flyTimeByDate?staffNum=${sn}&queryType=3&strTime=${this.utils.getDateDash(start)}&endTime=${this.utils.getDateDash(end)}&r=${Date.now()}`;
                     },
-                    "referrer": "https://ifly.csair.com/",
-                    "body": null,
-                    "method": "GET",
-                    "mode": "cors",
-                    "credentials": "include"
-                })
-                .then(response => response.json()) // 解析JSON格式的响应体
-                .then(data => {
-                    if(data.code == 200){
-                        // 数据处理:staffId添加员工号
-                        var eData = data.data[0]
-                        eData.staffId = staffNum
-
-                        // 数据导出
-                        flyTimeViaDateResult.push(eData)
-                        console.log("fetchFlyTimeViaDateviaStuffNum",staffNum,"Completed")
-                    }else{
-                        console.error('fetchFlyTimeViaDateviaStaffNum on Error:', staffNum, data.msg)
+                    processor: (data, staffNum) => {
+                        const list = Array.isArray(data) ? data : [data];
+                        list.forEach(i => { if (i) i.staffId = staffNum; });
+                        return list;
                     }
-                }) // 处理数据
-                .catch((error) => console.error('fetchFlyTimeViaDateviaStaffNum on Error:', staffNum, error)); // 捕获错误
+                });
             },
-            down:()=>{
-                exportData(flyTimeViaDateResult,"飞行时间导出")
+            down() {
+                exportData(flyTimeViaDateResult, "飞行时间导出");
             },
-            utils:{
-                getDateDash:(dt)=>{
-                    var now = new Date(dt);
-                    var year = now.getFullYear();
-                    var month = now.getMonth() + 1 < 10? `0${now.getMonth() + 1}`:now.getMonth() + 1; // 月份是从0开始的，所以要加1
-                    var date = now.getDate() < 10? `0${now.getDate()}`:now.getDate();
-                    return `${year}-${month}-${date}`
+            utils: {
+                getDateDash(dt) {
+                    var d = new Date(dt);
+                    var pad = n => n < 10 ? "0" + n : n;
+                    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
                 }
             }
         },
-        viaIebDate:{//仅用于120天100小时经历导出
-            // 基于起止日期获取
-            init:()=>{
-                flyTimeViaDateResult = []
-                getCookies();
-            }
-            ,
-            getViaStaffNum:(staffArgs) => {
-                var tThis = ezIeb.flyTime.viaIebDate
-                tThis.init()
-                tThis.fetch(staffArgs)
-            },
-            getViaStaffList:(staffList) =>{
-                // init
-                var tThis = ezIeb.flyTime.viaIebDate
-                tThis.init()
-                for(var i=0;i<staffList.length;i++){
-                    tThis.fetch(staffList[i])
-                }
-            },
-            fetch:async function(arr = [198273,"2013-01-01",new Date()]){
-                var staffNum = arr[0]
-                var startDate = arr[1]
-                var endDate = arr[2]
-                var tThis = ezIeb.flyTime.viaIebDate
-                try{
-                await loadJqueryJS()
-                //     https://ieb.csair.com/newieb/flytime/showFlytimeManyQueryList?staffNum=277581&activeStatusArray=ZAIZHI&fleetCdArray1=&fleetCdArray=&chnDescArray=&primaryBaseArray=&baseArray=&dateType=5&exportType=1&startStr=2026-01-01&endStr=2026-02-02&singlefleetCdArray=&chnDescArray1=&page=1&currentStr=1769996434992
-                $.get(`https://ieb.csair.com/newieb/flytime/showFlytimeManyQueryList?staffNum=${staffNum}&activeStatusArray=ZAIZHI&fleetCdArray1=&fleetCdArray=&chnDescArray=&primaryBaseArray=&baseArray=&dateType=5&exportType=1&startStr=${tThis.utils.getDateDash(startDate)}&endStr=${tThis.utils.getDateDash(endDate)}&singlefleetCdArray=&chnDescArray1=&page=1&currentStr=${Date.now()}`)
-                .done(function(res) {
-                    var rThis = $(res)[0]
-                    console.log(rThis)
 
-                    var result = {
-                    staffId:rThis.querySelector("div.staticPage.newPage > div > div > div > table > tbody > tr > td:nth-child(1)").innerText.replaceAll("\n","").replaceAll("\t",""),
-                    staffName:rThis.querySelector("div.staticPage.newPage > div > div > div > table > tbody > tr > td:nth-child(2)").innerText.replaceAll("\n","").replaceAll("\t",""),
-                    currentLevel:rThis.querySelector("div.staticPage.newPage > div > div > div > table > tbody > tr > td:nth-child(5)").innerText.replaceAll("\n","").replaceAll("\t",""),
-                    startDate:rThis.querySelector("div.staticPage.newPage > div > div > div > table > tbody > tr > td:nth-child(6)").innerText.replaceAll("\n","").replaceAll("\t",""),
-                    endDate:rThis.querySelector("div.staticPage.newPage > div > div > div > table > tbody > tr > td:nth-child(7)").innerText.replaceAll("\n","").replaceAll("\t",""),
-                    expThrTotal:rThis.querySelector("div.staticPage.newPage > div > div > div > table > tbody > tr > td:nth-child(9)").innerText.replaceAll("\n","").replaceAll("\t",""),
-                    legNum:rThis.querySelector("div.staticPage.newPage > div > div > div > table > tbody > tr > td:nth-child(10)").innerText.replaceAll("\n","").replaceAll("\t",""),
-                    leftThr:rThis.querySelector("div.staticPage.newPage > div > div > div > table > tbody > tr > td:nth-child(12)").innerText.replaceAll("\n","").replaceAll("\t",""),
-                    rightThr:rThis.querySelector("div.staticPage.newPage > div > div > div > table > tbody > tr > td:nth-child(13)").innerText.replaceAll("\n","").replaceAll("\t",""),
-                    totalControl:rThis.querySelector("div.staticPage.newPage > div > div > div > table > tbody > tr > td:nth-child(16)").innerText.replaceAll("\n","").replaceAll("\t",""),
-                    hxControl:rThis.querySelector("div.staticPage.newPage > div > div > div > table > tbody > tr > td:nth-child(17)").innerText.replaceAll("\n","").replaceAll("\t","")
-                }
-                flyTimeViaDateResult.push(result)
-                console.log("fetchFlyTimeViaDateviaStuffNum",staffNum,"Completed")
-                })
-            } catch (error) {console.error('fetchFlyTimeViaDateviaStaffNum on Error:', staffNum, error)}
-            },
-            down:()=>{
-                exportData(flyTimeViaDateResult,"飞行时间导出-iebDate")
-            },
-            utils:{
-                getDateDash:(dt)=>{
-                    var now = new Date(dt);
-                    var year = now.getFullYear();
-                    var month = now.getMonth() + 1 < 10? `0${now.getMonth() + 1}`:now.getMonth() + 1; // 月份是从0开始的，所以要加1
-                    var date = now.getDate() < 10? `0${now.getDate()}`:now.getDate();
-                    return `${year}-${month}-${date}`
-                }
-            } 
-        },
-        total:{
-            init:()=>{
-                flyTimeTotalResult = []
+        // ------------------------------
+        // 飞行时间（汇总）
+        // ------------------------------
+        total: {
+            init() {
+                flyTimeTotalResult = [];
                 getCookies();
             },
-            getViaStaffNum:(staffNum) => {
-                var tThis = ezIeb.flyTime.total
-                tThis.init()
-                tThis.fetch(staffNum)
+            getViaStaffNum(staffNum) {
+                this.getViaStaffList([staffNum]);
             },
-            getViaStaffList:(staffList) =>{
-                // init
-                var tThis = ezIeb.flyTime.total
-                tThis.init()
-                for(var i=0;i<staffList.length;i++){
-                    tThis.fetch(staffList[i])
-                }
-            },
-            fetch:(staffNum = 198273)=>{
-                var tThis = ezIeb.flyTime.total
-                fetch(`https://ifly.csair.com/api/profile-app/basic/cover?staffNum=${staffNum}&r=${Date.now()}`, {
-                    "headers": {
-                        "accept": "application/json, text/plain, */*",
-                        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-                        "cache-control": "no-cache",
-                        "ifly-token": IFLY_TOKEN,
-                        "pragma": "no-cache",
-                        "sec-ch-ua": "\"Google Chrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"",
-                        "sec-ch-ua-mobile": "?0",
-                        "sec-ch-ua-platform": "\"macOS\"",
-                        "sec-fetch-dest": "empty",
-                        "sec-fetch-mode": "cors",
-                        "sec-fetch-site": "same-origin"
-                    },
-                    "referrer": "https://ifly.csair.com/",
-                    "body": null,
-                    "method": "GET",
-                    "mode": "cors",
-                    "credentials": "include"
-                })
-                .then(response => response.json()) // 解析JSON格式的响应体
-                .then(data => {
-                    if(data.code == 200){
-                        // 数据处理:staffId添加员工号
-                        var eData = data.data.flyTimeQueryReturnDTO
-                        eData.staffId = staffNum
-                        // 数据处理:解码执照号&手机号 -> utils
-                        // eData.mobile = tThis.utils.decrypt(eData.mobile)
-                        // eData.identityNum = tThis.utils.decrypt(eData.identityNum)
-
-                        // 数据导出
-                        flyTimeTotalResult.push(eData)
-                        console.log("fetchFlyTimeTotalviaStuffNum",staffNum,"Completed")
-                    }else{
-                        console.error('fetchFlyTimeTotalviaStaffNum on Error:', staffNum, data.msg)
+            getViaStaffList(staffList) {
+                this.init();
+                return ezFetcher.batch({
+                    list: staffList,
+                    label: "飞行时间(汇总)",
+                    targetArray: flyTimeTotalResult,
+                    urlBuilder: sn =>
+                        `https://ifly.csair.com/api/profile-app/basic/cover?staffNum=${sn}&r=${Date.now()}`,
+                    processor: (data, staffNum) => {
+                        if (!data) return [];
+                        var dto = data.flyTimeQueryReturnDTO || data;
+                        dto.staffId = staffNum;
+                        return dto;
                     }
-                }) // 处理数据
-                .catch((error) => console.error('fetchFlyTimeTotalviaStaffNum on Error:', staffNum, error)); // 捕获错误
+                });
             },
-            down:()=>{
-                exportData(flyTimeTotalResult,"飞行时间导出-total")
+            down() {
+                exportData(flyTimeTotalResult, "飞行时间导出-total");
+            }
+        },
+        // ------------------------------
+        // 飞行时间（IEB 按日期段批量查询）
+        // 数据格式: [[staffNum, startDate, endDate], ...]
+        // ------------------------------
+        viaIebDate: {
+            init() {
+                flyTimeIebDateResult = [];
+                getCookies();
             },
-            utils:{
-                decrypt:(e)=>{
-                    if (!e) return e;
-                    try {
-                        const t = atob(e);
-                        const i = new Uint8Array(t.length);
-                        
-                        for (let a = 0; a < t.length; a++) {
-                            i[a] = t.charCodeAt(a);
+
+            getViaStaffList(dateList) {
+                this.init();
+                iebFetcher.batch({
+                    list: dateList,
+                    label: "IEB飞行时间",
+                    urlBuilder: ([sn, start, end]) =>
+                        `https://ieb.csair.com/newieb/flytime/showFlytimeManyQueryList?` +
+                        `staffNum=${sn}` +
+                        `&activeStatusArray=ZAIZHI` +
+                        `&fleetCdArray1=` +
+                        `&fleetCdArray=` +
+                        `&chnDescArray=` +
+                        `&primaryBaseArray=` +
+                        `&baseArray=` +
+                        `&dateType=5` +
+                        `&exportType=1` +
+                        `&startStr=${this.utils.getDateDash(start)}` +
+                        `&endStr=${this.utils.getDateDash(end)}` +
+                        `&singlefleetCdArray=` +
+                        `&chnDescArray1=` +
+                        `&page=1` +
+                        `&currentStr=${Date.now()}`,
+
+                    processor: (html, [staffNum, startDate, endDate]) => {
+                        const $tr = iebFetcher.parseTable(html);
+                        if (!$tr) {
+                            console.warn(`⚠️ IEB无数据 staff=${staffNum}`);
+                            return null;
                         }
-                        const s = [];
-                        for (let a = 0; a < i.length; a += 2) {
-                            const e = i[a] << 8 | (255 & i[a + 1]);
-                            s.push(e);
-                        }
-                        const n = s.map((e) => ~e);
-                        return String.fromCharCode(...n);
-                    } catch (error) {
-                        console.error('解密失败:', error);
-                        return null;
-                    }
-                }
-            }
-        },
-    },
-    passport:{
-        init:()=>{
-            passportResult = []
-            getCookies();
-        },
-        getViaStaffNum:(staffNum) => {
-            var tThis = ezIeb.passport
-            tThis.init()
-            tThis.fetch(staffNum)
-        },
-        getViaStaffList:(staffList) =>{
-            // init
-            var tThis = ezIeb.passport
-            tThis.init()
-            for(var i=0;i<staffList.length;i++){
-                tThis.fetch(staffList[i])
-            }
-        },
-        fetch:(staffNum = 198273)=>{
-            //     https://ifly.csair.com/api/profile-app/license/passport?staffNum=198273&r=1771035810706
-            fetch(`https://ifly.csair.com/api/profile-app/license/passport?staffNum=${staffNum}&r=${Date.now()}`, {
-                "headers": {
-                    "accept": "application/json, text/plain, */*",
-                    "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-                    "cache-control": "no-cache",
-                    "ifly-token": IFLY_TOKEN,
-                    "pragma": "no-cache",
-                    "sec-ch-ua": "\"Google Chrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"",
-                    "sec-ch-ua-mobile": "?0",
-                    "sec-ch-ua-platform": "\"macOS\"",
-                    "sec-fetch-dest": "empty",
-                    "sec-fetch-mode": "cors",
-                    "sec-fetch-site": "same-origin"
-                },
-                "referrer": "https://ifly.csair.com/",
-                "body": null,
-                "method": "GET",
-                "mode": "cors",
-                "credentials": "include"
-            })
-            .then(response => response.json()) // 解析JSON格式的响应体
-            .then(data => {
-                // 数据处理:新增staffId,staffId添加员工号
-                var eData = data.data
-                for(var j=0;j<eData.length;j++){
-                        eData[j].staffId = staffNum
-                }
-                // 数据导出
-                passportResult.push(eData)
-                console.log("fetchPassport",staffNum,"Completed")
-            }) // 处理数据
-            .catch((error) => console.error('fetchPassport', staffNum, error)); // 捕获错误
-        },
-        down:()=>{
-            exportMergedData(passportResult,"passport-护照签证导出")
-        }
-    },
-    flyTask:{
-        viaFlightNum:{
-        init:()=>{
-            flyTaskViaNumResult = []
-            getCookies();
-        },
-        getViaFlightNum:(flightNum) => {
-            var tThis = ezIeb.flyTask.viaFlightNum
-            tThis.init()
-            tThis.fetch(flightNum)
-        },
-        getViaFlightNumList:(flightNumList) =>{
-            // init
-            var tThis = ezIeb.flyTask.viaFlightNum
-            tThis.init()
-            for(var i=0;i<flightNumList.length;i++){
-                tThis.fetch(flightNumList[i])
-            }
-        },
-        fetch:(fltNum = "0427",startDate = '20260217',endDate = "20260226")=>{
-            fetch(`https://ifly.csair.com/api/os-app/flightTask/page?pageNum=1&pageSize=9999&fltNum=${fltNum}&depCd=&arvCd=&startDate=${startDate}&endDate=${endDate}&r=${Date.now()}`, {
-                "headers": {
-                    "accept": "application/json, text/plain, */*",
-                    "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-                    "cache-control": "no-cache",
-                    "ifly-token": IFLY_TOKEN,
-                    "pragma": "no-cache",
-                    "sec-ch-ua": "\"Google Chrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"",
-                    "sec-ch-ua-mobile": "?0",
-                    "sec-ch-ua-platform": "\"macOS\"",
-                    "sec-fetch-dest": "empty",
-                    "sec-fetch-mode": "cors",
-                    "sec-fetch-site": "same-origin"
-                },
-                "referrer": "https://ifly.csair.com/",
-                "body": null,
-                "method": "GET",
-                "mode": "cors",
-                "credentials": "include"
-            })
-            .then(response => response.json()) // 解析JSON格式的响应体
-            .then(data => {
-                // 数据处理:新增flightNum，添加航班号
-                var eData = data.data.list
-                for(var j=0;j<eData.length;j++){
-                        eData[j].fltNum = fltNum
-                }
-                // 数据导出
-                flyTaskViaNumResult.push(eData)
-                console.log("fetchFlyTaskViaNum",fltNum,"Completed")
-            }) // 处理数据
-            .catch((error) => console.error('fetchFlyTaskViaNum on Error:', fltNum, error)); // 捕获错误
-        },
-        down:()=>{
-            exportMergedData(flyTaskViaNumResult,"航班任务导出")
-        }
-        },
-        viaDetail:{
-        init:()=>{
-            flyDetailResult = []
-            getCookies();
-        },
-        getViaFlightInfo:(flightInfo) => {
-            var tThis = ezIeb.flyTask.viaDetail
-            tThis.init()
-            tThis.fetch(flightInfo)
-        },
-        getViaFlightList:(flightInfoList) =>{
-            // init
-            var tThis = ezIeb.flyTask.viaDetail
-            tThis.init()
-            for(var i=0;i<flightInfoList.length;i++){
-                tThis.fetch(flightInfoList[i])
-            }
-        },
-        fetch:(fltNum = "0427",date = '20260217',depCd = "CAN",arvCd = "LAX")=>{
-            fetch(`https://ifly.csair.com/api/os-app/mobile/work/taskQuery/task/his/flightCrew?&fltNum=${fltNum}&depCd=${depCd}&arvCd=${arvCd}&startDate=${date}&endDate=${date}&fleetCd=773&r=${Date.now()}`, {
-                "headers": {
-                    "accept": "application/json, text/plain, */*",
-                    "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-                    "cache-control": "no-cache",
-                    "IFLY-TOKEN": IFLY_TOKEN,
-                    "pragma": "no-cache",
-                    "sec-ch-ua": `Mozilla/5.0 (iPad; CPU OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 AliApp(EPLM_PAD/0.0.5) WindVane/8.6.1 TBIOS 2360x1640 WK`,
-                    "sec-ch-ua-mobile": "?0",
-                    "sec-ch-ua-platform": "mobile",
-                    "sec-fetch-dest": "empty",
-                    "sec-fetch-mode": "cors",
-                    "sec-fetch-site": "same-origin"
-                },
-                "referrer": "https://cdn-emasn.csair.com/",
-                "origin": "https://cdn-emasn.csair.com/",
-                "body": null,
-                "method": "GET",
-                "mode": "cors",
-                "credentials": "include"
-            })
-            // curl 'https://ifly.csair.com/api/os-app/mobile/work/taskQuery/task/his/flightCrew?startDate=20250508&endDate=20250508&fltNum=0328&arvCd=CAN&depCd=LAX&fleetCd=773&r=1777599855130'  -H 'Host: ifly.csair.com'  -H 'Accept: application/json, text/plain, */*'  -H 'Sec-Fetch-Site: same-site'  -H 'Accept-Language: zh-CN,zh-Hans;q=0.9'  -H 'Accept-Encoding: gzip, deflate, br'  -H 'Sec-Fetch-Mode: cors'  -H 'IFLY-TOKEN: eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZUNobiI6IuabvuWBpem5jyIsImxvZ2luVHlwZSI6IjQiLCJ1c2VybmFtZSI6IjI5ODk1NiIsImlzT2F1dGgiOjAsInRzIjoiMjAyNi0wNS0wMSAwOTo0MzoxOCJ9.lldZusdoEfo9wwMpmXlHJc-o9RHSCE9ZbiutvgrS374'  -H 'Origin: https://cdn-emasn.csair.com'  -H 'User-Agent: Mozilla/5.0 (iPad; CPU OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 AliApp(EPLM_PAD/0.0.5) WindVane/8.6.1 TBIOS 2360x1640 WK'  -H 'Referer: https://cdn-emasn.csair.com/'  -H 'Connection: keep-alive'  -H 'f-refer: wv_h5'  -H 'handleError: true'  -H 'Sec-Fetch-Dest: empty'  
-            .then(response => response.json()) // 解析JSON格式的响应体
-            .then(data => {
-                // 数据处理:新增flightNum，添加航班号
-                var eData = data.data
-                for(var j=0;j<eData.length;j++){
-                        eData[j].fltNum = fltNum
-                        eData[j].date = date
-                        eData[j].depCd = depCd
-                        eData[j].arvCd = arvCd
-                }
-                // 数据导出
-                flyDetailResult.push(eData)
-                console.log("fetchFlyTaskDetail",fltNum,"Completed")
-            }) // 处理数据
-            .catch((error) => console.error('fetchFlyTaskViaNum on Error:', fltNum, error)); // 捕获错误
-        },
-        down:()=>{
-            exportMergedData(flyDetailResult,"航班任务机组成员导出")
-        }
-        },
-    },
-    auto:{
-         get:(staffList = staffJSZB)=>{
-            if(typeof staffList !== 'object'){
-                alert("staffList 未定义！")
-                return
-            }
-            setTimeout(()=>ezIeb.trainingRecord.getViaStaffList(staffList),100)
-            setTimeout(()=>ezIeb.trainingCheckList.getViaStaffList(staffList),15000)
-            setTimeout(()=>ezIeb.qualList.getViaStaffList(staffList),30000)
-            setTimeout(()=>ezIeb.skillLevel.getViaStaffList(staffList),45000)
-            setTimeout(()=>ezIeb.personData.getViaStaffList(staffList),60000)
-            // 新增护照导出
-            setTimeout(()=>ezIeb.passport.getViaStaffList(staffList),80000)
-            // 飞行时间导出
-            setTimeout(()=>ezIeb.flyTime.viaStage.getViaStaffList(staffList),100000)
-            setTimeout(()=>ezIeb.flyTime.total.getViaStaffList(staffList),120000)
 
-         },
-         down:()=>{
-            ezIeb.trainingRecord.down()
-            ezIeb.trainingCheckList.down()
-            ezIeb.qualList.down()
-            ezIeb.skillLevel.down()
-            ezIeb.personData.down()
-            ezIeb.passport.down()
-            ezIeb.flyTime.viaStage.down()
-            ezIeb.flyTime.total.down()
-         },
+                        const tds = $tr.find("td");
+
+                        return {
+                            staffId: tds.eq(0).text().trim(),
+                            staffName: tds.eq(1).text().trim(),
+                            baseReg: tds.eq(2).text().trim(),
+                            baseOp: tds.eq(3).text().trim(),
+                            techLevel: tds.eq(4).text().trim(),
+
+                            startDate: tds.eq(5).text().trim(),
+                            endDate: tds.eq(6).text().trim(),
+
+                            flyTime: tds.eq(7).text().trim(),
+                            expTime: tds.eq(8).text().trim(),
+                            legNum: tds.eq(9).text().trim(),
+
+                            nightTime: tds.eq(10).text().trim(),
+                            leftTime: tds.eq(11).text().trim(),
+                            rightTime: tds.eq(12).text().trim(),
+
+                            simTime: tds.eq(13).text().trim(),
+                            localTime: tds.eq(14).text().trim(),
+
+                            landTotal: tds.eq(15).text().trim(),
+                            landRoute: tds.eq(16).text().trim(),
+                            landLocal: tds.eq(17).text().trim(),
+
+                            manualTime: tds.eq(18).text().trim(),
+
+                            queryStart: startDate,
+                            queryEnd: endDate
+                        };
+                    }
+                }).then(res => {
+                    flyTimeIebDateResult = res.filter(Boolean);
+                    console.log(`✅ IEB飞行时间完成，共 ${flyTimeIebDateResult.length} 条`);
+                });
+            },
+
+            getViaStaffNum(arr) {
+                this.getViaStaffList([arr]);
+            },
+
+            utils: {
+                getDateDash(dt) {
+                    const d = new Date(dt);
+                    const pad = n => (n < 10 ? "0" + n : n);
+                    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+                }
+            },
+
+            down() {
+                exportData(flyTimeIebDateResult, "飞行时间导出-iebDate");
+            }
+        }
+},
+
+// ------------------------------
+// 航班任务（按航班号）
+// ------------------------------
+flyTask: {
+    viaFlightNum: {
+        init() {
+            flyTaskViaNumResult = [];
+            getCookies();
+        },
+        getViaFlightNum(flightNum) {
+            this.getViaFlightNumList([flightNum]);
+        },
+        getViaFlightNumList(flightNumList) {
+            this.init();
+            return ezFetcher.batch({
+                list: flightNumList,
+                label: "航班任务",
+                targetArray: flyTaskViaNumResult,
+                urlBuilder: fn =>
+                    `https://ifly.csair.com/api/os-app/flightTask/page?pageNum=1&pageSize=9999&fltNum=${fn}&depCd=&arvCd=&startDate=20260217&endDate=20260226&r=${Date.now()}`,
+                processor: (data, fltNum) => {
+                    const list = (data && data.list) || [];
+                    list.forEach(i => { if (i) i.fltNum = fltNum; });
+                    return list;
+                }
+            });
+        },
+        down() {
+            exportMergedData(flyTaskViaNumResult, "航班任务导出");
+        }
     },
-    UI:{
-        init:()=>{
-            const dom = document.createElement("div")
+
+        // ------------------------------
+        // 航班任务（按详情）
+        // ------------------------------
+        viaDetail: {
+            init() {
+                flyDetailResult = [];
+                getCookies();
+            },
+            getViaFlightInfo(flightInfo) {
+                this.getViaFlightList([flightInfo]);
+            },
+            getViaFlightList(flightInfoList) {
+                this.init();
+                return ezFetcher.batch({
+                    list: flightInfoList,
+                    label: "航班机组成员",
+                    targetArray: flyDetailResult,
+                    urlBuilder: info => {
+                        var fn = info[0], dt = info[1], dep = info[2], arv = info[3];
+                        return `https://ifly.csair.com/api/os-app/mobile/work/taskQuery/task/his/flightCrew?fltNum=${fn}&depCd=${dep}&arvCd=${arv}&startDate=${dt}&endDate=${dt}&fleetCd=773&r=${Date.now()}`;
+                    },
+                    processor: (data, flightInfo) => {
+                        const list = Array.isArray(data) ? data : [];
+                        var fn = flightInfo[0], dt = flightInfo[1], dep = flightInfo[2], arv = flightInfo[3];
+                        list.forEach(i => {
+                            if (!i) return;
+                            i.fltNum = fn;
+                            i.date = dt;
+                            i.depCd = dep;
+                            i.arvCd = arv;
+                        });
+                        return list;
+                    }
+                });
+            },
+            down() {
+                exportMergedData(flyDetailResult, "航班任务机组成员导出");
+            }
+        }
+    },
+
+    // ------------------------------
+    // 自动化批量执行
+    // ------------------------------
+    auto: {
+        async get(staffList) {
+            staffList = staffList || staffJSZB;
+            if (!staffList || staffList.length === 0) {
+                alert("staffList 未定义或为空！");
+                return;
+            }
+
+            ezFetcher.concurrency = 4;
+            console.log(`🚀 ezIeb 开始批量拉取，共 ${staffList.length} 人`);
+
+            await ezIeb.trainingRecord.getViaStaffList(staffList);
+            console.log(`✅ 培训记录: ${trainingRecordResult.length} 条`);
+
+            await ezIeb.trainingCheckList.getViaStaffList(staffList);
+            console.log(`✅ 检查记录: ${trainingCheckListResult.length} 条`);
+
+            await ezIeb.qualList.getViaStaffList(staffList);
+            console.log(`✅ 运行资格: ${qualListResult.length} 条`);
+
+            await ezIeb.skillLevel.getViaStaffList(staffList);
+            console.log(`✅ 技术等级: ${skillLevelResult.length} 条`);
+
+            await ezIeb.personData.getViaStaffList(staffList);
+            console.log(`✅ 人员信息: ${personDataResult.length} 条`);
+
+            await ezIeb.passport.getViaStaffList(staffList);
+            console.log(`✅ 护照签证: ${passportResult.length} 条`);
+
+            await ezIeb.flyTime.viaStage.getViaStaffList(staffList);
+            console.log(`✅ 飞行时间(阶段): ${flyTimeViaStageResult.length} 条`);
+
+            await ezIeb.flyTime.total.getViaStaffList(staffList);
+            console.log(`✅ 飞行时间(汇总): ${flyTimeTotalResult.length} 条`);
+
+            console.log("🎉 全部数据拉取完成！调用 ezIeb.auto.down() 导出 Excel");
+        },
+        down() {
+            console.log("📦 开始导出所有模块...");
+            console.log(`  培训记录: ${trainingRecordResult.length} 条`);
+            console.log(`  检查记录: ${trainingCheckListResult.length} 条`);
+            console.log(`  运行资格: ${qualListResult.length} 条`);
+            console.log(`  技术等级: ${skillLevelResult.length} 条`);
+            console.log(`  人员信息: ${personDataResult.length} 条`);
+            console.log(`  护照签证: ${passportResult.length} 条`);
+            console.log(`  飞行时间(阶段): ${flyTimeViaStageResult.length} 条`);
+            console.log(`  飞行时间(汇总): ${flyTimeTotalResult.length} 条`);
+
+            ezIeb.trainingRecord.down();
+            ezIeb.trainingCheckList.down();
+            ezIeb.qualList.down();
+            ezIeb.skillLevel.down();
+            ezIeb.personData.down();
+            ezIeb.passport.down();
+            ezIeb.flyTime.viaStage.down();
+            ezIeb.flyTime.total.down();
+
+            console.log("📥 全部导出完成！");
+        }
+    },
+
+    // ------------------------------
+    // UI 入口
+    // ------------------------------
+    UI: {
+        init() {
+            const dom = document.createElement("div");
             dom.innerHTML = `<a class="admin-link font-16 el-link el-link--default">
             <span class="el-link--inner">
-            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAMAAAC7IEhfAAAAAXNSR0IB2cksfwAAARRQTFRFAAAA////QID/Nnb/XJ7/SYn/U5T/Q4P/S4z/VZf/PXz/To//Pn7/WZv/O3r/Rob/NHP/UJL/V5j/OXj/UoT/XqH/YaP/8vf/Wpz/MnH/W5n/P37/SYj/RYP/MG//UZD/WZn/Ypr/f6r/i7b/hK7/U4z/OXP/ZZ3/+Pv/WJn/X5f/YaX/WZn/Sor/S4v/SYb/V5H/XZX/YqT/L27/QGD/wtj/krj/QoP/Pn7/YqT/PXz/Lmz/RYb/S43/QYL/MG//UZP/PXr/TI3/R4j/2+j/U5b/Q4T/LW3/L2z/QID/qMr/T4//YKP/LW//L2v/QIb/zNz/YqT/T4//L2//Onr/L2//P3//ocL/Pn3/P3//OXX/QHv/8vfFewAAAFx0Uk5TAP////////////////////////8Q//////9AgICA/4CA/////yAg/////99wYHBA//9w3wj//zBwUGhAv5/f73B8r9//v48wrxj/z0iPvyj/n++fgM/v/9+/SDjKjaDfAAAB70lEQVR4nLXTWVvaQBQG4BGILEkAJcRAEk1aAwiCFFHc92q1q3av//9/dObMnOSYJ7Te+F3OvM83c4bA2Etl6/rkh2EYlUq12mg08vl6vd46/f71MMWio1qxmMvlUOalbK2uvutQN7uscZgtt29I36WmZcoWyKTzQhNwbueneI5SSdPmdILEiY5LIGtQmiU/Kvhej2V257aCD/oTySmHVJ4quKQr+bPXW6FZ+FKVEiHKq4VUeprsVHAR5Xh3HfJKZX2sTkcYy3kTEfhvqWB58X+dCGPZ7YZh2O+/4RlTqeAyyh068W4xkQpugOT3zIBSKmguY2e3C4fz0/tjek+EJodlnF1/MpEBv6aCjpl00tlPrt0997dBoIOdVB5tyd2OW6koWHBUZ/haJuTS4xvTjgX0F8JCQUr8KFbKJeFm5+63PyAJBHknv7Lejn4s1n3Xdc/pv7XJZcE0N8hEEV+2PCFvKGw249OlvID1oe+7exaBNkAqh7A+9Xz/kTg2sLFSySX5MjPP84cU3tukE95TXJFZozUuPxO4b6dlm7WDYI3HEwMdkLOVxJcfsv0AJId8oBi2bZBNeCUh37IPQSKTRjax49Ple0bMSjKl1xxgpyMkr5xMNnnOzkaj0S2dPJoMUDqiMyCNLJWoTZPefX7+Ah5xUWwZ0FtwAAAAAElFTkSuQmCC" alt="logo" class="logo home-logo">
+            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAMAAAC7IEhfAAAAAXNSR0IB2cksfwAAARRQTFRFAAAA////QID/Nnb/XJ7/SYn/U5T/Q4P/S4z/VZf/PXz/To//Pn7/WZv/O3r/Rob/NHP/UJL/V5j/OXj/UoT/XqH/YaP/8vf/Wpz/MnH/W5n/P37/SYj/RYP/MG//UZD/WZn/Ypr/f6r/i7b/hK7/U4z/OXP/ZZ3/+Pv/WJn/X5f/YaX/WZn/Sor/S4v/SYb/V5H/XZX/YqT/L27/QGD/wtj/krj/QoP/Pn7/YqT/PXz/Lmz/RYb/S43/QYL/MG//UZP/PXr/TI3/R4j/2+j/U5b/Q4T/LW3/L2z/QID/qMr/T4//YKP/LW//L2v/QIb/zNz/YqT/T4//L2//Onr/L2//P3//ocL/Pn3/P3//OXX/QHv/8vfFewAAAFx0Uk5TAP////////////////////////8Q//////9AgICA/4CA/////yAg/////99wYHBA//9w3wj//zBwUGhAv5/f73B8r9//v48wrxj/z0iPvyj/n++fgM/v/9+/SDjKjaDfAAAB70lEQVR4nLXTWVvaQBQG4BGILEkAJcRAEk1aAwiCFFHc92q1q3av//9/dObMnOSYJ7Te+F3OvM83c4bA2Etl6/rkh2EYlUq12mg08vl6vd46/f71MMWio1qxmMvlUOalbK2uvutQN7uscZgtt29I36WmZcoWyKTzQhNwbueneI5SSdPmdILEiY5LIGtQmiU/Kvhej2V257aCD/oTySmHVJ4quKQr+bPXW6FZ+FKVEiHKq4VUeprsVHAR5Xh3HfJKZX2sTkcYy3kTEfhvqWB58X+dCGPZ7YZh2O+/4RlTqeAyyh068W4xkQpugOT3zIBSKmguY2e3C4fz0/tjek+EJodlnF1/MpEBv6aCjpl00tlPrt1997dBoIOdVB5tyd2OW6koWHBUZ/haJuTS4xvTjgX0F8JCQUr8KFbKJeFm5+63PyAJBHknv7Lejn4s1n3Xdc/pv7XJZcE0N8hEEV+2PCFvKGw249OlvID1oe+7exaBNkAqh7A+9Xz/kTg2sLFSySX5MjPP84cU3tukE95TXJFZozUuPxO4b6dlm7WDYI3HEwMdkLOVxJcfsv0AJId8oBi2bZBNeCUh37IPQSKTRjax49Ple0bMSjKl1xxgpyMOWwZ0FtwAAAAAElFTkSuQmCC" alt="logo" class="logo home-logo">
             <span>EZ Platform</span>
-            </span></a>`
-            dom.onclick = ()=>{
-                document.querySelector("#mainContent").innerHTML = getCookies().IFLY_TOKEN
-                var requestCode = prompt("1","1")
-                switch(requestCode){
-                    case "1":
-                        ezIeb.qualList.auto.getViaStaffList(staffJSZB)
-                }
-            }
-            document.querySelector(".portal-header__body-right").appendChild(dom)
-            console.log(`ezIeb CommandLine Tool Version:${versionID}`)
-        },
+            </span></a>`;
+            dom.style.cursor = "pointer";
+            dom.onclick = () => {
+                document.querySelector("#mainContent").innerHTML = getCookies().IFLY_TOKEN;
+            };
+            document.querySelector(".portal-header__body-right").appendChild(dom);
+            console.log(`ezIeb CommandLine Tool Version:${versionID}`);
+        }
     }
-}
+};
 
-ezConsole = {
-    init:()=>{
-        document.querySelector("#mainContent").innerHTML = ``
+// ==============================
+// ✅ Console 辅助
+// ==============================
+var ezConsole = {
+    init() {
+        document.querySelector("#mainContent").innerHTML = ``;
     },
-    log:(...text)=>{
-        const pDom = document.createElement("p")
-        pDom.innerText = text.join(" ")
-        console.log(text)
-        document.querySelector("#mainContent").appendChild(pDom)
+    log(...text) {
+        const pDom = document.createElement("p");
+        pDom.innerText = text.join(" ");
+        console.log(text);
+        document.querySelector("#mainContent").appendChild(pDom);
     }
-}
+};
 
-// 加载SheetJS库
+// ==============================
+// ✅ SheetJS 加载器
+// ==============================
 function loadSheetJS() {
     return new Promise((resolve, reject) => {
-        if (typeof XLSX !== 'undefined') {
+        if (typeof XLSX !== "undefined") {
             resolve();
             return;
         }
-        
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
         script.onload = () => {
-            // 加载成功后，立即把 XLSX 赋值给 MyXLSX
-            make_xlsx_lib(XLSX)
-            resolve;
+            if (typeof make_xlsx_lib === "function") {
+                make_xlsx_lib(XLSX);
+            }
+            resolve();
         };
-        script.onerror = reject;
+        script.onerror = () => {
+            console.error("❌ SheetJS 加载失败，请检查网络");
+            reject(new Error("SheetJS load failed"));
+        };
         document.head.appendChild(script);
     });
 }
-// 加载jquery
+
+// ==============================
+// ✅ jQuery 加载器
+// ==============================
 function loadJqueryJS() {
     return new Promise((resolve, reject) => {
-        if (typeof jQuery !== 'undefined') {
+        if (typeof jQuery !== "undefined") {
             resolve();
             return;
         }
-        
-        const script = document.createElement('script');
-        script.src = 'https://cdn.bootcdn.net/ajax/libs/jquery/3.7.1/jquery.min.js';
+        const script = document.createElement("script");
+        script.src = "https://cdn.bootcdn.net/ajax/libs/jquery/3.7.1/jquery.min.js";
         script.onload = resolve;
         script.onerror = reject;
         document.head.appendChild(script);
     });
 }
 
-// 预处理数据 - 将JSON对象转换为字符串
+// ==============================
+// ✅ 数据预处理（对象转字符串）
+// ==============================
 function preprocessData(data) {
     return data.map(item => {
+        if (!item || typeof item !== "object") return item;
         const processed = {};
         for (const key in item) {
             const value = item[key];
-            processed[key] = (typeof value === 'object' && value !== null) 
-                ? JSON.stringify(value) 
+            processed[key] = (typeof value === "object" && value !== null)
+                ? JSON.stringify(value)
                 : value;
         }
         return processed;
     });
 }
 
-// 将多个数组合并为一个Excel工作表
+// ==============================
+// ✅ 合并数组到 Workbook（已修复：不再双重嵌套）
+// ==============================
 function mergeArraysToWorkbook(arrays) {
-    // 合并所有数组
+    // ✅ 关键修复：arrays 本身就是扁平数据数组，不要再把每个元素当子数组 concat
     const mergedData = arrays
-          .filter(array => Array.isArray(array) && array.length > 0) // 过滤空数组
-          .reduce((acc, array) => acc.concat(array), [])
-          .map(data => preprocessData([data])[0]); // 预处理每个数据项
-    
-    // 创建工作簿和工作表
+        .filter(item => item && typeof item === "object")
+        .map(data => preprocessData([data])[0]);
+
+    if (mergedData.length === 0) {
+        console.warn("⚠️ 没有有效数据可导出（数组为空）");
+        // 返回一个空 workbook 而不是崩溃
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet([{ 提示: "无数据" }]);
+        XLSX.utils.book_append_sheet(wb, ws, "无数据");
+        return wb;
+    }
+
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(mergedData);
-    
-    // 添加工作表到工作簿
     XLSX.utils.book_append_sheet(wb, ws, "合并数据");
-    
     return wb;
 }
+
 function arraysToWorkbook(arrays) {
-    // 处理数组
     const mergedData = arrays
-          .map(data => preprocessData([data])[0]); // 预处理每个数据项
-    console.log(mergedData)
-    // 创建工作簿和工作表
+        .filter(item => item && typeof item === "object")
+        .map(data => preprocessData([data])[0]);
+
+    if (mergedData.length === 0) {
+        console.warn("⚠️ 没有有效数据可导出（数组为空）");
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet([{ 提示: "无数据" }]);
+        XLSX.utils.book_append_sheet(wb, ws, "无数据");
+        return wb;
+    }
+
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(mergedData);
-    
-    // 添加工作表到工作簿
-    XLSX.utils.book_append_sheet(wb, ws, "合并数据");
-    
+    XLSX.utils.book_append_sheet(wb, ws, "数据");
     return wb;
 }
 
-// 下载Excel文件
-function downloadExcel(workbook, filename = 'merged-data') {
+// ==============================
+// ✅ 下载 Excel
+// ==============================
+function downloadExcel(workbook, filename) {
+    if (!workbook) {
+        console.error("❌ workbook 为空，无法下载");
+        return;
+    }
     XLSX.writeFile(workbook, filename);
-    console.log(`文件已下载: ${filename}`);
+    console.log(`📥 文件已下载: ${filename}`);
 }
 
-function getNowDash(){
+function getNowDash() {
     var now = new Date();
-    var year = now.getFullYear();
-    var month = now.getMonth() + 1; // 月份是从0开始的，所以要加1
-    var date = now.getDate();
-    var hours = now.getHours();
-    var minutes = now.getMinutes();
-    var seconds = now.getSeconds();
-    return `${year}-${month}-${date}-${hours}-${minutes}-${seconds}`
+    var pad = n => n < 10 ? "0" + n : n;
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
 }
 
-
-// 完整导出流程-无合并数组
+// ==============================
+// ✅ 导出流程（已修复：确认数据非空再导出）
+// ==============================
 async function exportData(arrays, filename) {
     try {
+        if (!arrays || arrays.length === 0) {
+            console.warn(`⚠️ [${filename}] 数据为空，跳过导出`);
+            return;
+        }
         await loadSheetJS();
         const workbook = arraysToWorkbook(arrays);
         downloadExcel(workbook, `${filename}-${getNowDash()}.xlsx`);
     } catch (error) {
-        console.error('导出失败:', error);
+        console.error("导出失败:", error);
     }
 }
-// 完整导出流程
+
 async function exportMergedData(arrays, filename) {
     try {
+        if (!arrays || arrays.length === 0) {
+            console.warn(`⚠️ [${filename}] 数据为空，跳过导出`);
+            return;
+        }
         await loadSheetJS();
         const workbook = mergeArraysToWorkbook(arrays);
         downloadExcel(workbook, `${filename}-${getNowDash()}.xlsx`);
     } catch (error) {
-        console.error('导出失败:', error);
+        console.error("导出失败:", error);
     }
 }
-// 完整导出流程-数据切片
-async function exportMergedBigData(arrays, filename,pageSize = 100) {
+
+// ✅ 已修复：分页逻辑 + 空数据检查
+async function exportMergedBigData(arrays, filename, pageSize = 100) {
     try {
+        if (!arrays || arrays.length === 0) {
+            console.warn(`⚠️ [${filename}] 数据为空，跳过导出`);
+            return;
+        }
+
         await loadSheetJS();
-        for(var pgNum = 0;pgNum < arrays.length / pageSize + 0.1;pgNum++){
-            console.log(pgNum)
-            var workbook = mergeArraysToWorkbook(arrays.slice(pgNum * pageSize,(pgNum+1) * pageSize));
+        var totalPages = Math.ceil(arrays.length / pageSize);
+
+        for (var pgNum = 0; pgNum < totalPages; pgNum++) {
+            var start = pgNum * pageSize;
+            var end = start + pageSize;
+            var chunk = arrays.slice(start, end);
+
+            console.log(`📦 导出分片 ${pgNum + 1}/${totalPages} (${chunk.length} 条)`);
+
+            var workbook = mergeArraysToWorkbook(chunk);
             downloadExcel(workbook, `${filename}-序号-${pgNum + 1}-${getNowDash()}.xlsx`);
         }
     } catch (error) {
-        console.error('导出失败:', error);
+        console.error("导出失败:", error);
     }
 }
 
-// 获取iFLY_TOKEN
+// ==============================
+// ✅ 获取 Cookies / Token
+// ==============================
 function getCookies() {
-  var cookies = document.cookie.split('; ');
-  var result = {};
-  
-  cookies.forEach(function(cookie) {
-    var parts = cookie.split('=');
-    var key = decodeURIComponent(parts[0]);
-    var value = decodeURIComponent(parts[1]);
-    
-    result[key] = value;
-  });
-  IFLY_TOKEN = result.IFLY_TOKEN
-  cookies = result
-  return result;
+    var cookiesArr = document.cookie.split("; ");
+    var result = {};
+    cookiesArr.forEach(function (cookie) {
+        var parts = cookie.split("=");
+        var key = decodeURIComponent(parts[0]);
+        var value = decodeURIComponent(parts[1] || "");
+        result[key] = value;
+    });
+    IFLY_TOKEN = result.IFLY_TOKEN || "";
+    cookies = result;
+    return result;
 }
 
-window.onload = ()=>{setTimeout(()=>ezIeb.UI.init(),4000)}
+// ==============================
+// ✅ 启动
+// ==============================
+window.onload = () => {
+    setTimeout(() => ezIeb.UI.init(), 4000);
+};
+
+console.log(`%c🚀 ezIeb CLI v${versionID} 已加载\n调用方式:\n  ezIeb.auto.get(staffJSZB)  // 批量拉取\n  ezIeb.auto.down()        // 导出 Excel`, "color:#2196f3;font-weight:bold;font-size:13px");
