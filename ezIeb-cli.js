@@ -23,6 +23,7 @@ var flyTimeTotalResult = [];
 var flyTaskViaNumResult = [];
 var flyDetailResult = [];
 var passportResult = [];
+var medicalCertResult = []
 
 var staffJSZB = [];
 var sfb_NewStaff = [];
@@ -710,6 +711,37 @@ flyTask: {
             down() {
                 exportMergedData(flyDetailResult, "航班任务机组成员导出");
             }
+        }
+    },
+    
+    // ------------------------------
+    // 体检合格证记录
+    // ------------------------------
+    medicalCert: {
+        init() {
+            medicalCertResult = [];
+            getCookies();
+        },
+        getViaStaffNum(staffNum) {
+            this.getViaStaffList([staffNum]);
+        },
+        getViaStaffList(staffList) {
+            this.init();
+            return ezFetcher.batch({
+                list: staffList,
+                label: "体检合格证记录",
+                targetArray: medicalCertResult,
+                urlBuilder: sn =>
+                    `https://ifly.csair.com/api/profile-app/health/checkMedicalList?staffNum=${sn}&r=${Date.now()}`,
+                processor: (data, staffNum) => {
+                    const list = Array.isArray(data) ? data : [];
+                    list.forEach(i => { if (i && i.staffId !== "") i.staffId = staffNum; });
+                    return list;
+                }
+            });
+        },
+        down() {
+            exportMergedData(medicalCertResult, "medicalCert-体检合格证导出");
         }
     },
 
