@@ -1,13 +1,12 @@
 // =============================================================
 // ezIeb-cli.js  (完整重构版 - 单文件)
 // Version: 20260522-FIXED
-// 修复: 空文件 / collector 共享 / 分页逻辑 / 数据赋值
 // =============================================================
 
 // ==============================
 // 全局变量
 // ==============================
-var versionID = "20260807";
+var versionID = "20260828";
 
 var IFLY_TOKEN = "";
 var cookies = {};
@@ -1020,6 +1019,25 @@ async function exportMergedBigData(arrays, filename, pageSize = 100) {
     } catch (error) {
         console.error("导出失败:", error);
     }
+}
+// ==============================
+// ✅ PowerToys: GET Training Record --> Console
+// ==============================
+function getTrainList(){
+    const rows = [...document.querySelectorAll('.bDiv tbody.list tr')];
+
+    const tsv = rows.map(tr => {
+      const cells = [...tr.querySelectorAll('td')];
+      // 取第 2~5 列：索引 1~4
+      return [
+        cells[1].innerText.trim(), // 文章编号
+        cells[2].innerText.trim(), // 文章标题
+        cells[3].innerText.trim(), // 发布人
+        cells[4].innerText.trim()  // 发布日期
+      ].join('\t');
+    }).join('\n');
+    
+    console.log(tsv)
 }
 
 // ==============================
